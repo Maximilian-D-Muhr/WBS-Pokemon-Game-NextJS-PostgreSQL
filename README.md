@@ -57,12 +57,13 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 wbs-pokemon-game/
 ├── app/                    # Next.js App Router
+│   ├── components/         # React Components
+│   ├── lib/                # Utility Functions & Data Access
+│   ├── sql/                # Database Schemas
 │   ├── layout.tsx          # Root Layout
 │   ├── page.tsx            # Home Page
 │   └── globals.css         # Global Styles
 ├── public/                 # Static Assets
-├── lib/                    # Utility Functions (coming)
-├── components/             # React Components (coming)
 └── package.json            # Dependencies & Scripts
 ```
 
