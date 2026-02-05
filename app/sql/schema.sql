@@ -1,0 +1,6 @@
+CREATE TABLE leaderboard (
+  id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  username TEXT NOT NULL,
+  score INT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
