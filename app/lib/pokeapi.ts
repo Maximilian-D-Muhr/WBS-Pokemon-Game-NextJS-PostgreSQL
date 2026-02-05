@@ -16,19 +16,30 @@ export interface PokemonListItem {
   url: string;
 }
 
+export interface PokemonSprites {
+  front_default: string | null;
+  back_default: string | null;
+  front_shiny: string | null;
+  back_shiny: string | null;
+  other?: {
+    'official-artwork'?: {
+      front_default: string | null;
+      front_shiny: string | null;
+    };
+    home?: {
+      front_default: string | null;
+      front_shiny: string | null;
+    };
+  };
+}
+
 export interface Pokemon {
   id: number;
   name: string;
   height: number;
   weight: number;
-  sprites: {
-    front_default: string | null;
-    other?: {
-      'official-artwork'?: {
-        front_default: string | null;
-      };
-    };
-  };
+  base_experience: number;
+  sprites: PokemonSprites;
   types: PokemonType[];
   stats: PokemonStat[];
   abilities: PokemonAbility[];
@@ -68,15 +79,14 @@ const BASE_URL = env.POKEAPI_BASE_URL;
 
 /**
  * Fetch a list of Pokemon
- * @param limit - Number of Pokemon to fetch (default: 20)
- * @param offset - Offset for pagination (default: 0)
  */
 export async function getPokemonList(
   limit: number = 20,
   offset: number = 0
 ): Promise<PokemonListResponse> {
   const response = await fetch(
-    `${BASE_URL}/pokemon?limit=${limit}&offset=${offset}`
+    `${BASE_URL}/pokemon?limit=${limit}&offset=${offset}`,
+    { cache: 'force-cache' }
   );
 
   if (!response.ok) {
@@ -88,10 +98,11 @@ export async function getPokemonList(
 
 /**
  * Fetch a single Pokemon by ID or name
- * @param idOrName - Pokemon ID or name
  */
 export async function getPokemon(idOrName: string | number): Promise<Pokemon> {
-  const response = await fetch(`${BASE_URL}/pokemon/${idOrName}`);
+  const response = await fetch(`${BASE_URL}/pokemon/${idOrName}`, {
+    cache: 'force-cache',
+  });
 
   if (!response.ok) {
     throw new Error(`Failed to fetch Pokemon ${idOrName}: ${response.status}`);
@@ -102,7 +113,6 @@ export async function getPokemon(idOrName: string | number): Promise<Pokemon> {
 
 /**
  * Extract Pokemon ID from URL
- * @param url - Pokemon URL from list response
  */
 export function getPokemonIdFromUrl(url: string): number {
   const parts = url.split('/').filter(Boolean);
@@ -110,17 +120,75 @@ export function getPokemonIdFromUrl(url: string): number {
 }
 
 /**
- * Get Pokemon sprite URL
- * @param id - Pokemon ID
+ * Get Pokemon sprite URL (small)
  */
 export function getPokemonSpriteUrl(id: number): string {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 }
 
 /**
- * Get Pokemon official artwork URL
- * @param id - Pokemon ID
+ * Get Pokemon official artwork URL (large HD)
  */
 export function getPokemonArtworkUrl(id: number): string {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
 }
+
+/**
+ * Get Pokemon shiny artwork URL (large HD)
+ */
+export function getPokemonShinyArtworkUrl(id: number): string {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/shiny/${id}.png`;
+}
+
+/**
+ * Fetch Pokemon by type
+ */
+export interface TypePokemon {
+  pokemon: {
+    name: string;
+    url: string;
+  };
+  slot: number;
+}
+
+export interface TypeResponse {
+  id: number;
+  name: string;
+  pokemon: TypePokemon[];
+}
+
+export async function getPokemonByType(type: string): Promise<TypeResponse> {
+  const response = await fetch(`${BASE_URL}/type/${type}`, {
+    cache: 'force-cache',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch type ${type}: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Type color mapping for UI
+ */
+export const TYPE_COLORS: Record<string, string> = {
+  normal: '#A8A878',
+  fire: '#F08030',
+  water: '#6890F0',
+  electric: '#F8D030',
+  grass: '#78C850',
+  ice: '#98D8D8',
+  fighting: '#C03028',
+  poison: '#A040A0',
+  ground: '#E0C068',
+  flying: '#A890F0',
+  psychic: '#F85888',
+  bug: '#A8B820',
+  rock: '#B8A038',
+  ghost: '#705898',
+  dragon: '#7038F8',
+  dark: '#705848',
+  steel: '#B8B8D0',
+  fairy: '#EE99AC',
+};
