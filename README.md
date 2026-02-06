@@ -77,3 +77,4 @@ wbs-pokemon-game/
 - [Next.js Docs](https://nextjs.org/docs)
 - [PokeAPI](https://pokeapi.co/)
 - [Tailwind CSS](https://tailwindcss.com/docs)
+
