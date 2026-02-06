@@ -1,13 +1,429 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { TYPE_COLORS } from '@/app/lib/pokeapi';
+
+interface RosterPokemon {
+  id: number;
+  name: string;
+  types: string[];
+  sprite: string;
+  stats: {
+    hp: number;
+    attack: number;
+    defense: number;
+    speed: number;
+  };
+}
+
+interface BattlePokemon extends RosterPokemon {
+  currentHp: number;
+  maxHp: number;
+}
+
+type BattleState = 'select' | 'battle' | 'victory' | 'defeat';
+
+interface BattleLog {
+  message: string;
+  type: 'player' | 'opponent' | 'system';
+}
+
+// Random Pokemon IDs for opponents (Gen 1-4, excluding legendaries)
+const OPPONENT_POOL = [
+  // Gen 1
+  3, 6, 9, 12, 15, 18, 20, 22, 24, 26, 28, 31, 34, 36, 38, 40, 42, 45, 47, 49,
+  51, 53, 55, 57, 59, 62, 65, 68, 71, 73, 76, 78, 80, 82, 85, 87, 89, 91, 94,
+  97, 99, 101, 103, 105, 106, 107, 108, 110, 112, 113, 114, 115, 117, 119, 121,
+  122, 123, 124, 125, 126, 127, 128, 130, 131, 132, 134, 135, 136, 137, 139, 141,
+  // Gen 2
+  154, 157, 160, 162, 164, 166, 168, 169, 171, 176, 178, 181, 182, 184, 185, 186,
+  189, 190, 195, 196, 197, 199, 200, 203, 205, 206, 208, 210, 211, 212, 213, 214,
+  217, 219, 221, 224, 225, 226, 227, 229, 230, 232, 234, 235, 237, 241, 242,
+  // Gen 3
+  254, 257, 260, 262, 264, 267, 269, 272, 275, 277, 279, 282, 284, 286, 289, 291,
+  292, 295, 297, 301, 302, 303, 306, 308, 310, 311, 312, 314, 317, 319, 321, 323,
+  324, 326, 327, 330, 332, 334, 335, 336, 337, 338, 340, 342, 344, 346, 348, 350,
+  351, 352, 354, 357, 358, 359, 362, 365, 367, 368, 369, 370,
+  // Gen 4
+  389, 392, 395, 398, 400, 402, 405, 407, 409, 411, 413, 414, 416, 417, 419, 421,
+  423, 424, 426, 428, 429, 430, 432, 435, 437, 441, 442, 446, 448, 450, 452, 454,
+  455, 457, 458, 460, 461, 462, 463, 464, 465, 466, 467, 468, 469, 470, 471, 472,
+  473, 474, 475, 476, 477
+];
+
 export default function BattlePage() {
+  const [roster, setRoster] = useState<RosterPokemon[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [battleState, setBattleState] = useState<BattleState>('select');
+  const [playerPokemon, setPlayerPokemon] = useState<BattlePokemon | null>(null);
+  const [opponentPokemon, setOpponentPokemon] = useState<BattlePokemon | null>(null);
+  const [battleLog, setBattleLog] = useState<BattleLog[]>([]);
+  const [isPlayerTurn, setIsPlayerTurn] = useState(true);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [score, setScore] = useState(0);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('pokemon-roster');
+    setRoster(saved ? JSON.parse(saved) : []);
+    setIsLoaded(true);
+  }, []);
+
+  const generateOpponent = async (): Promise<BattlePokemon> => {
+    const randomId = OPPONENT_POOL[Math.floor(Math.random() * OPPONENT_POOL.length)];
+
+    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${randomId}`);
+    const data = await res.json();
+
+    const hp = data.stats.find((s: { stat: { name: string } }) => s.stat.name === 'hp')?.base_stat || 50;
+
+    return {
+      id: data.id,
+      name: data.name,
+      types: data.types.map((t: { type: { name: string } }) => t.type.name),
+      sprite: data.sprites.front_default,
+      stats: {
+        hp,
+        attack: data.stats.find((s: { stat: { name: string } }) => s.stat.name === 'attack')?.base_stat || 50,
+        defense: data.stats.find((s: { stat: { name: string } }) => s.stat.name === 'defense')?.base_stat || 50,
+        speed: data.stats.find((s: { stat: { name: string } }) => s.stat.name === 'speed')?.base_stat || 50,
+      },
+      currentHp: hp,
+      maxHp: hp,
+    };
+  };
+
+  const startBattle = async (pokemon: RosterPokemon) => {
+    setIsAnimating(true);
+    setBattleLog([{ message: 'Finding opponent...', type: 'system' }]);
+
+    const player: BattlePokemon = {
+      ...pokemon,
+      currentHp: pokemon.stats.hp,
+      maxHp: pokemon.stats.hp,
+    };
+
+    const opponent = await generateOpponent();
+
+    setPlayerPokemon(player);
+    setOpponentPokemon(opponent);
+    setBattleState('battle');
+
+    // Determine who goes first based on speed
+    const playerFirst = player.stats.speed >= opponent.stats.speed;
+    setIsPlayerTurn(playerFirst);
+
+    setBattleLog([
+      { message: `A wild ${opponent.name.toUpperCase()} appeared!`, type: 'system' },
+      { message: `Go, ${player.name.toUpperCase()}!`, type: 'system' },
+      { message: playerFirst ? 'You move first!' : 'Opponent moves first!', type: 'system' },
+    ]);
+
+    setIsAnimating(false);
+
+    // If opponent goes first, trigger their attack
+    if (!playerFirst) {
+      setTimeout(() => opponentAttack(player, opponent), 1000);
+    }
+  };
+
+  const calculateDamage = (attacker: BattlePokemon, defender: BattlePokemon): number => {
+    // Base damage formula with some randomness
+    const baseDamage = Math.max(1, attacker.stats.attack - defender.stats.defense / 2);
+    const randomFactor = 0.85 + Math.random() * 0.3; // 85% - 115%
+    const criticalHit = Math.random() < 0.1 ? 1.5 : 1; // 10% crit chance
+    return Math.floor(baseDamage * randomFactor * criticalHit);
+  };
+
+  const playerAttack = () => {
+    if (!playerPokemon || !opponentPokemon || isAnimating || !isPlayerTurn) return;
+
+    setIsAnimating(true);
+    const damage = calculateDamage(playerPokemon, opponentPokemon);
+    const newOpponentHp = Math.max(0, opponentPokemon.currentHp - damage);
+
+    setBattleLog(prev => [...prev, {
+      message: `${playerPokemon.name.toUpperCase()} deals ${damage} damage!`,
+      type: 'player'
+    }]);
+
+    setOpponentPokemon({ ...opponentPokemon, currentHp: newOpponentHp });
+
+    if (newOpponentHp <= 0) {
+      // Victory!
+      setTimeout(() => {
+        const earnedScore = Math.floor(opponentPokemon.maxHp + opponentPokemon.stats.attack);
+        setScore(prev => prev + earnedScore);
+        setBattleLog(prev => [...prev, {
+          message: `${opponentPokemon.name.toUpperCase()} fainted! You earned ${earnedScore} points!`,
+          type: 'system'
+        }]);
+        setBattleState('victory');
+        setIsAnimating(false);
+      }, 500);
+    } else {
+      // Opponent's turn
+      setIsPlayerTurn(false);
+      setTimeout(() => {
+        opponentAttack(playerPokemon, { ...opponentPokemon, currentHp: newOpponentHp });
+      }, 1000);
+    }
+  };
+
+  const opponentAttack = (player: BattlePokemon, opponent: BattlePokemon) => {
+    if (!player || !opponent) return;
+
+    const damage = calculateDamage(opponent, player);
+    const newPlayerHp = Math.max(0, player.currentHp - damage);
+
+    setBattleLog(prev => [...prev, {
+      message: `${opponent.name.toUpperCase()} deals ${damage} damage!`,
+      type: 'opponent'
+    }]);
+
+    setPlayerPokemon({ ...player, currentHp: newPlayerHp });
+
+    if (newPlayerHp <= 0) {
+      // Defeat
+      setTimeout(() => {
+        setBattleLog(prev => [...prev, {
+          message: `${player.name.toUpperCase()} fainted!`,
+          type: 'system'
+        }]);
+        setBattleState('defeat');
+        setIsAnimating(false);
+      }, 500);
+    } else {
+      // Player's turn
+      setIsPlayerTurn(true);
+      setIsAnimating(false);
+    }
+  };
+
+  const continueBattle = async () => {
+    if (!playerPokemon) return;
+
+    setIsAnimating(true);
+    setBattleLog([{ message: 'Finding new opponent...', type: 'system' }]);
+
+    const opponent = await generateOpponent();
+    setOpponentPokemon(opponent);
+    setBattleState('battle');
+
+    const playerFirst = playerPokemon.stats.speed >= opponent.stats.speed;
+    setIsPlayerTurn(playerFirst);
+
+    setBattleLog([
+      { message: `A wild ${opponent.name.toUpperCase()} appeared!`, type: 'system' },
+      { message: playerFirst ? 'You move first!' : 'Opponent moves first!', type: 'system' },
+    ]);
+
+    setIsAnimating(false);
+
+    if (!playerFirst) {
+      setTimeout(() => opponentAttack(playerPokemon, opponent), 1000);
+    }
+  };
+
+  const resetBattle = () => {
+    setBattleState('select');
+    setPlayerPokemon(null);
+    setOpponentPokemon(null);
+    setBattleLog([]);
+    setScore(0);
+    setIsPlayerTurn(true);
+  };
+
+  const getHpBarColor = (current: number, max: number) => {
+    const percent = (current / max) * 100;
+    if (percent > 50) return 'bg-green-500';
+    if (percent > 25) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+        <main className="mx-auto max-w-4xl px-4 py-8">
+          <div className="animate-pulse">Loading...</div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-          Battle
-        </h1>
-        <p className="mt-2 text-zinc-500 dark:text-zinc-400">
-          Choose a Pokemon from your roster and battle a random opponent.
-        </p>
+      <main className="mx-auto max-w-4xl px-4 py-8">
+        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">Battle Arena</h1>
+
+        {score > 0 && (
+          <div className="mt-2 inline-block rounded-full bg-yellow-100 px-4 py-1 text-sm font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+            Score: {score}
+          </div>
+        )}
+
+        {/* Select Pokemon */}
+        {battleState === 'select' && (
+          <div className="mt-8">
+            {roster.length === 0 ? (
+              <div className="rounded-xl border border-zinc-200 bg-white p-12 text-center dark:border-zinc-800 dark:bg-zinc-900">
+                <p className="text-lg text-zinc-500">Your roster is empty!</p>
+                <p className="mt-2 text-sm text-zinc-400">Add Pokemon to your roster first.</p>
+                <Link href="/" className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700">
+                  Browse Arenas
+                </Link>
+              </div>
+            ) : (
+              <>
+                <p className="mt-2 text-zinc-500 dark:text-zinc-400">Choose your Pokemon for battle!</p>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {roster.map((pokemon) => (
+                    <button
+                      key={pokemon.id}
+                      onClick={() => startBattle(pokemon)}
+                      className="group rounded-xl border border-zinc-200 bg-white p-4 text-left transition-all hover:border-blue-300 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700"
+                    >
+                      <div className="flex items-center gap-4">
+                        <Image
+                          src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.id}.png`}
+                          alt={pokemon.name}
+                          width={64}
+                          height={64}
+                          className="transition-transform group-hover:scale-110"
+                        />
+                        <div>
+                          <h3 className="font-semibold capitalize text-zinc-900 dark:text-zinc-100">{pokemon.name}</h3>
+                          <div className="mt-1 flex gap-1">
+                            {pokemon.types.map((type) => (
+                              <span key={type} className="rounded-full px-2 py-0.5 text-xs text-white" style={{ backgroundColor: TYPE_COLORS[type] }}>{type}</span>
+                            ))}
+                          </div>
+                          <p className="mt-1 text-xs text-zinc-400">HP: {pokemon.stats.hp} | ATK: {pokemon.stats.attack}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Battle Arena */}
+        {(battleState === 'battle' || battleState === 'victory' || battleState === 'defeat') && playerPokemon && opponentPokemon && (
+          <div className="mt-8">
+            {/* Battle Field */}
+            <div className="rounded-xl border border-zinc-200 bg-gradient-to-b from-sky-100 to-green-100 p-6 dark:border-zinc-800 dark:from-zinc-800 dark:to-zinc-900">
+              <div className="grid grid-cols-2 gap-8">
+                {/* Opponent */}
+                <div className="text-center">
+                  <div className="mb-2 rounded-lg bg-white/80 p-2 dark:bg-zinc-800/80">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold capitalize text-zinc-900 dark:text-zinc-100">{opponentPokemon.name}</span>
+                      <span className="text-sm text-zinc-500">{opponentPokemon.currentHp}/{opponentPokemon.maxHp}</span>
+                    </div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                      <div
+                        className={`h-full transition-all duration-300 ${getHpBarColor(opponentPokemon.currentHp, opponentPokemon.maxHp)}`}
+                        style={{ width: `${(opponentPokemon.currentHp / opponentPokemon.maxHp) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <Image
+                    src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${opponentPokemon.id}.png`}
+                    alt={opponentPokemon.name}
+                    width={150}
+                    height={150}
+                    className={`mx-auto ${battleState === 'victory' ? 'opacity-30 grayscale' : ''}`}
+                  />
+                </div>
+
+                {/* Player */}
+                <div className="text-center">
+                  <div className="mb-2 rounded-lg bg-white/80 p-2 dark:bg-zinc-800/80">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold capitalize text-zinc-900 dark:text-zinc-100">{playerPokemon.name}</span>
+                      <span className="text-sm text-zinc-500">{playerPokemon.currentHp}/{playerPokemon.maxHp}</span>
+                    </div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                      <div
+                        className={`h-full transition-all duration-300 ${getHpBarColor(playerPokemon.currentHp, playerPokemon.maxHp)}`}
+                        style={{ width: `${(playerPokemon.currentHp / playerPokemon.maxHp) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <Image
+                    src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${playerPokemon.id}.png`}
+                    alt={playerPokemon.name}
+                    width={150}
+                    height={150}
+                    className={`mx-auto ${battleState === 'defeat' ? 'opacity-30 grayscale' : ''}`}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Battle Log */}
+            <div className="mt-4 h-32 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+              {battleLog.map((log, i) => (
+                <p
+                  key={i}
+                  className={`text-sm ${
+                    log.type === 'player' ? 'text-blue-600 dark:text-blue-400' :
+                    log.type === 'opponent' ? 'text-red-600 dark:text-red-400' :
+                    'text-zinc-500'
+                  }`}
+                >
+                  {log.message}
+                </p>
+              ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-4 flex gap-4">
+              {battleState === 'battle' && (
+                <button
+                  onClick={playerAttack}
+                  disabled={!isPlayerTurn || isAnimating}
+                  className={`flex-1 rounded-xl py-4 text-lg font-bold transition-all ${
+                    isPlayerTurn && !isAnimating
+                      ? 'bg-red-500 text-white hover:bg-red-600'
+                      : 'cursor-not-allowed bg-zinc-300 text-zinc-500 dark:bg-zinc-700'
+                  }`}
+                >
+                  {isPlayerTurn ? '⚔️ Attack!' : 'Opponent attacking...'}
+                </button>
+              )}
+
+              {battleState === 'victory' && (
+                <>
+                  <button
+                    onClick={continueBattle}
+                    className="flex-1 rounded-xl bg-green-500 py-4 text-lg font-bold text-white hover:bg-green-600"
+                  >
+                    🎯 Continue Battle
+                  </button>
+                  <button
+                    onClick={resetBattle}
+                    className="rounded-xl border border-zinc-300 px-6 py-4 font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  >
+                    End & Save Score
+                  </button>
+                </>
+              )}
+
+              {battleState === 'defeat' && (
+                <button
+                  onClick={resetBattle}
+                  className="flex-1 rounded-xl bg-blue-500 py-4 text-lg font-bold text-white hover:bg-blue-600"
+                >
+                  Try Again
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
