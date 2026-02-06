@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Pokemon } from '@/lib/pokeapi';
+import { Pokemon } from '@/app/lib/pokeapi';
 
 interface AddToRosterButtonProps {
   pokemon: Pokemon;

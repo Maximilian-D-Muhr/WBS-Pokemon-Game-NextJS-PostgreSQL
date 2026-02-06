@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Arena } from '@/lib/arenas';
+import { Arena } from '@/app/lib/arenas';
 
 interface ArenaCardProps {
   arena: Arena;

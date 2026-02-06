@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { getPokemonIdFromUrl, getPokemonSpriteUrl } from '@/lib/pokeapi';
+import { getPokemonIdFromUrl, getPokemonSpriteUrl } from '@/app/lib/pokeapi';
 
 interface PokemonCardProps {
   name: string;

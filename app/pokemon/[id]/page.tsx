@@ -1,4 +1,4 @@
-import { getPokemon, TYPE_COLORS } from '@/lib/pokeapi';
+import { getPokemon, TYPE_COLORS } from '@/app/lib/pokeapi';
 import { SpriteViewer } from '@/app/components/SpriteViewer';
 import { AddToRosterButton } from '@/app/components/AddToRosterButton';
 import Link from 'next/link';

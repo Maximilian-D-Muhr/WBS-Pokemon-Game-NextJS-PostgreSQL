@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ARENAS } from '@/lib/arenas';
+import { ARENAS } from '@/app/lib/arenas';
 import { ArenaCard } from './components/ArenaCard';
 import { UsernameForm } from './components/UsernameForm';
 

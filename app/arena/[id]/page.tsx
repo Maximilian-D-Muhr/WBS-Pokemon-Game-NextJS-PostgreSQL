@@ -1,5 +1,5 @@
-import { getArenaById, ARENAS } from '@/lib/arenas';
-import { getPokemonByType, getPokemonIdFromUrl, TYPE_COLORS } from '@/lib/pokeapi';
+import { getArenaById, ARENAS } from '@/app/lib/arenas';
+import { getPokemonByType, getPokemonIdFromUrl, TYPE_COLORS } from '@/app/lib/pokeapi';
 import { PokemonCard } from '@/app/components/PokemonCard';
 import Link from 'next/link';
 import Image from 'next/image';
