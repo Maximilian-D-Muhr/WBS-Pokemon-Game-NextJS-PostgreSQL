@@ -31,7 +31,7 @@ Build an interactive Pokemon game with the following features:
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/Maximilian-D-Muhr/WBS-Pokemon-Game-NextJS-PostgreSQL
 cd wbs-pokemon-game
 
 # Install dependencies
