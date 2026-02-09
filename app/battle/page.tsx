@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { TYPE_COLORS } from '@/app/lib/pokeapi';
+import { addToLeaderboard } from '@/app/lib/leaderboard';
 
 // ============ INTERFACES ============
 
@@ -74,9 +76,12 @@ const OPPONENT_POOL = [
 ];
 
 export default function BattlePage() {
+  const router = useRouter();
+
   // Battle State
   const [roster, setRoster] = useState<RosterPokemon[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [username, setUsername] = useState<string>('');
   const [battleState, setBattleState] = useState<BattleState>('select');
   const [playerPokemon, setPlayerPokemon] = useState<BattlePokemon | null>(null);
   const [opponentPokemon, setOpponentPokemon] = useState<BattlePokemon | null>(null);
@@ -98,9 +103,11 @@ export default function BattlePage() {
     const saved = localStorage.getItem('pokemon-roster');
     const savedBadges = localStorage.getItem('pokemon-badges');
     const savedStats = localStorage.getItem('pokemon-battle-stats');
+    const savedUsername = localStorage.getItem('pokemon-username');
     setRoster(saved ? JSON.parse(saved) : []);
     setPlayedArenas(savedBadges ? JSON.parse(savedBadges) : []);
     setStats(savedStats ? JSON.parse(savedStats) : initialStats);
+    setUsername(savedUsername || 'Anonymous');
     setIsLoaded(true);
   }, []);
 
@@ -293,7 +300,12 @@ export default function BattlePage() {
     }
   };
 
-  const resetBattle = () => {
+  const resetBattle = async () => {
+    // Submit score to leaderboard if score > 0
+    if (score > 0 && username) {
+      await addToLeaderboard({ username, score });
+    }
+
     setShowModal(false);
     setBattleState('select');
     setPlayerPokemon(null);
@@ -301,6 +313,13 @@ export default function BattlePage() {
     setBattleLog([]);
     setScore(0);
     setIsPlayerTurn(true);
+  };
+
+  const endAndSaveScore = async () => {
+    if (score > 0 && username) {
+      await addToLeaderboard({ username, score });
+    }
+    router.push('/leaderboard');
   };
 
   const getHpBarColor = (current: number, max: number) => {
@@ -480,10 +499,10 @@ export default function BattlePage() {
                     🎯 Continue Battle
                   </button>
                   <button
-                    onClick={resetBattle}
+                    onClick={endAndSaveScore}
                     className="rounded-xl border border-zinc-300 px-6 py-4 font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
                   >
-                    End & Save Score
+                    🏆 End & Save Score
                   </button>
                 </>
               )}
@@ -520,19 +539,29 @@ export default function BattlePage() {
               </div>
               <div className="mt-6 flex gap-3">
                 {lastResult === 'win' && (
+                  <>
+                    <button
+                      onClick={continueBattle}
+                      className="flex-1 rounded-lg bg-green-500 px-4 py-2 font-medium text-white hover:bg-green-600"
+                    >
+                      Continue
+                    </button>
+                    <button
+                      onClick={endAndSaveScore}
+                      className="flex-1 rounded-lg bg-yellow-500 px-4 py-2 font-medium text-black hover:bg-yellow-400"
+                    >
+                      🏆 Save to Leaderboard
+                    </button>
+                  </>
+                )}
+                {lastResult === 'loss' && (
                   <button
-                    onClick={continueBattle}
-                    className="flex-1 rounded-lg bg-green-500 px-4 py-2 font-medium text-white hover:bg-green-600"
+                    onClick={resetBattle}
+                    className="flex-1 rounded-lg bg-zinc-200 px-4 py-2 font-medium hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700"
                   >
-                    Continue
+                    Try Again
                   </button>
                 )}
-                <button
-                  onClick={resetBattle}
-                  className="flex-1 rounded-lg bg-zinc-200 px-4 py-2 font-medium hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-                >
-                  {lastResult === 'win' ? 'End Session' : 'Try Again'}
-                </button>
               </div>
             </div>
           </div>
