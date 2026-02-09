@@ -113,21 +113,26 @@ export default function BattlePage() {
 
   // ============ WAQAR'S STATS SYSTEM ============
 
-  async function handleBattleResult(result: BattleResult, xpDelta: number) {
+  async function handleBattleResult(result: BattleResult) {
+    const scoreDelta = result === 'win' ? 100 : -50;
+    const xpGain = result === 'win' ? 30 : 10; // XP always goes up
+    const newScore = Math.max(0, score + scoreDelta);
     const newStats = {
       wins: result === 'win' ? stats.wins + 1 : stats.wins,
       losses: result === 'loss' ? stats.losses + 1 : stats.losses,
-      xp: Math.max(0, stats.xp + xpDelta),
+      xp: stats.xp + xpGain,
     };
+
+    setScore(newScore);
     setStats(newStats);
     localStorage.setItem('pokemon-battle-stats', JSON.stringify(newStats));
     setLastResult(result);
     setShowModal(true);
 
-    // Auto-save to leaderboard after every win
-    if (result === 'win' && username) {
-      const currentScore = score + xpDelta; // score state hasn't updated yet, so add manually
-      await addToLeaderboard({ username, score: currentScore, xp: newStats.xp });
+    // Auto-save to leaderboard after every battle
+    if (username) {
+      const isChampion = playedArenas.length >= 8;
+      await addToLeaderboard({ username, score: newScore, xp: newStats.xp, isChampion });
     }
   }
 
@@ -228,18 +233,16 @@ export default function BattlePage() {
 
     if (newOpponentHp <= 0) {
       setTimeout(() => {
-        const earnedScore = Math.floor(opponentPokemon.maxHp + opponentPokemon.stats.attack);
-        setScore(prev => prev + earnedScore);
         setBattleLog(prev => [...prev, {
-          message: `${opponentPokemon.name.toUpperCase()} fainted! You earned ${earnedScore} points!`,
+          message: `${opponentPokemon.name.toUpperCase()} fainted! +100 points!`,
           type: 'system'
         }]);
         setBattleState('victory');
         setIsAnimating(false);
 
-        // Track arena + Waqar's stats
+        // Track arena + stats
         markArenasPlayed(playerPokemon.types);
-        handleBattleResult('win', earnedScore);
+        handleBattleResult('win');
       }, 500);
     } else {
       setIsPlayerTurn(false);
@@ -265,15 +268,15 @@ export default function BattlePage() {
     if (newPlayerHp <= 0) {
       setTimeout(() => {
         setBattleLog(prev => [...prev, {
-          message: `${player.name.toUpperCase()} fainted!`,
+          message: `${player.name.toUpperCase()} fainted! -50 points!`,
           type: 'system'
         }]);
         setBattleState('defeat');
         setIsAnimating(false);
 
-        // Track arena + Waqar's stats (participation counts!)
+        // Track arena + stats (participation counts!)
         markArenasPlayed(player.types);
-        handleBattleResult('loss', -10);
+        handleBattleResult('loss');
       }, 500);
     } else {
       setIsPlayerTurn(true);
@@ -342,19 +345,16 @@ export default function BattlePage() {
       <main className="mx-auto max-w-4xl px-4 py-8">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">Battle Arena</h1>
-          {/* Waqar's Stats Display */}
+          {/* Stats Display */}
           <div className="flex gap-4 text-sm">
             <span className="text-green-600">Wins: {stats.wins}</span>
             <span className="text-red-600">Losses: {stats.losses}</span>
+            <span className="font-bold text-blue-600">Score: {score}</span>
             <span className="text-yellow-600">XP: {stats.xp}</span>
           </div>
         </div>
 
-        {score > 0 && (
-          <div className="mt-2 inline-block rounded-full bg-yellow-100 px-4 py-1 text-sm font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-            Session Score: {score}
-          </div>
-        )}
+        {/* Score is displayed in the header stats */}
 
         {/* Select Pokemon */}
         {battleState === 'select' && (
@@ -563,6 +563,7 @@ export default function BattlePage() {
               <div className="mt-4 space-y-1">
                 <p>Wins: {stats.wins}</p>
                 <p>Losses: {stats.losses}</p>
+                <p>Score: {score}</p>
                 <p>Total XP: {stats.xp}</p>
               </div>
               <div className="mt-6 flex gap-3">

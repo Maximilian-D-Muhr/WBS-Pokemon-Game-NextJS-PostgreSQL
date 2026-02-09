@@ -5,8 +5,12 @@ interface LeaderboardEntry {
   username: string;
   score: number;
   xp: number;
+  is_champion: boolean;
   created_at: string;
 }
+
+// Arena type emojis for the champion badge animation
+const ARENA_EMOJIS = ['🔥', '💧', '⚡', '🌿', '🔮', '🪨', '❄️', '🐉'];
 
 interface ShameEntry {
   id: number;
@@ -22,6 +26,15 @@ export default async function LeaderboardPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+      <style>{`
+        @keyframes champion-rotate {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .champion-ring {
+          animation: champion-rotate 8s linear infinite;
+        }
+      `}</style>
       <main className="mx-auto max-w-4xl px-4 py-8">
         <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
           Leaderboard
@@ -83,7 +96,17 @@ export default async function LeaderboardPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
-                          {entry.username}
+                          <div className="flex items-center gap-2">
+                            {entry.is_champion && (
+                              <span className="champion-ring inline-flex text-sm" title="Arena Champion - All 8 arenas completed!">
+                                {ARENA_EMOJIS.map((emoji, i) => (
+                                  <span key={i} className="inline-block" style={{ animationDelay: `${i * -1}s` }}>{emoji}</span>
+                                ))}
+                              </span>
+                            )}
+                            <span>{entry.username}</span>
+                            {entry.is_champion && <span title="Champion">👑</span>}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-right font-mono text-zinc-600 dark:text-zinc-400">
                           {entry.score.toLocaleString()}
