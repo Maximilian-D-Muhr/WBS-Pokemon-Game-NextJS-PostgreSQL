@@ -18,8 +18,28 @@ Build an interactive Pokemon game with the following features:
 | React | 19.x | UI Library |
 | TypeScript | 5.x | Type Safety |
 | Tailwind CSS | 4.x | Styling |
-| Prisma | - | Database ORM (coming later) |
-| Neon | - | PostgreSQL Database (coming later) |
+| Zod | 4.x | Runtime Validation |
+| Neon | - | PostgreSQL Database |
+
+## Security Features
+
+This project implements advanced security measures to protect against common web attacks:
+
+### Honeypot System ("Hall of Shame")
+
+A proactive security concept that detects and logs malicious activity:
+
+| Protection | Method |
+|------------|--------|
+| SQL Injection | Parameterized queries + pattern detection |
+| XSS Attacks | React auto-escaping + input sanitization |
+| Score Manipulation | Server-side validation (max score limits) |
+| Type Injection | Zod schema validation |
+| Overflow Attacks | Negative number detection |
+
+**How it works:** Instead of simply blocking attacks, suspicious submissions are logged to a public "Hall of Shame" table while returning fake success responses. This honeypot approach catches attackers who believe their exploit worked.
+
+> *Advanced security architecture and honeypot implementation concept by Max and Waqar. Implementation realized and end-to-end testing co-authored and validated by Claude Opus 4.5.*
 
 ## Local Setup
 
@@ -56,14 +76,18 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ```
 wbs-pokemon-game/
-├── app/                    # Next.js App Router
-│   ├── layout.tsx          # Root Layout
-│   ├── page.tsx            # Home Page
-│   └── globals.css         # Global Styles
-├── public/                 # Static Assets
-├── lib/                    # Utility Functions (coming)
-├── components/             # React Components (coming)
-└── package.json            # Dependencies & Scripts
+├── app/
+│   ├── arena/[id]/         # Arena detail pages
+│   ├── pokemon/[id]/       # Pokemon detail pages
+│   ├── battle/             # Battle system
+│   ├── roster/             # Team management
+│   ├── leaderboard/        # Scores + Hall of Shame
+│   ├── components/         # Reusable UI components
+│   ├── lib/                # Server actions & utilities
+│   └── sql/                # Database schemas
+├── public/
+│   └── arenas/             # Arena background images
+└── package.json
 ```
 
 ## Team
@@ -77,4 +101,3 @@ wbs-pokemon-game/
 - [Next.js Docs](https://nextjs.org/docs)
 - [PokeAPI](https://pokeapi.co/)
 - [Tailwind CSS](https://tailwindcss.com/docs)
-
