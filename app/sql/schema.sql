@@ -3,8 +3,12 @@ CREATE TABLE leaderboard (
   id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
   username TEXT NOT NULL,
   score INT NOT NULL,
+  xp INT DEFAULT 0,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Migration: Add xp column if table exists
+-- ALTER TABLE leaderboard ADD COLUMN IF NOT EXISTS xp INT DEFAULT 0;
 
 -- Hall of Shame - catches cheaters/hackers 🍯
 CREATE TABLE hall_of_shame (

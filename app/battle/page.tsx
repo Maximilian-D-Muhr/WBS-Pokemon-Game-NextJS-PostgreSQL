@@ -300,12 +300,7 @@ export default function BattlePage() {
     }
   };
 
-  const resetBattle = async () => {
-    // Submit score to leaderboard if score > 0
-    if (score > 0 && username) {
-      await addToLeaderboard({ username, score });
-    }
-
+  const resetBattle = () => {
     setShowModal(false);
     setBattleState('select');
     setPlayerPokemon(null);
@@ -316,8 +311,9 @@ export default function BattlePage() {
   };
 
   const endAndSaveScore = async () => {
+    // Only submit once when ending session
     if (score > 0 && username) {
-      await addToLeaderboard({ username, score });
+      await addToLeaderboard({ username, score, xp: stats.xp });
     }
     router.push('/leaderboard');
   };
@@ -361,6 +357,28 @@ export default function BattlePage() {
         {/* Select Pokemon */}
         {battleState === 'select' && (
           <div className="mt-8">
+            {/* Arena Progress - Above Roster */}
+            <div className="mb-6 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+              <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                Arena Progress: {playedArenas.length}/8
+              </h3>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {ARENA_TYPES.map(type => (
+                  <span
+                    key={type}
+                    className={`rounded-full px-3 py-1 text-sm font-medium ${
+                      playedArenas.includes(type)
+                        ? 'text-white'
+                        : 'bg-zinc-200 text-zinc-400 dark:bg-zinc-700'
+                    }`}
+                    style={playedArenas.includes(type) ? { backgroundColor: TYPE_COLORS[type] } : {}}
+                  >
+                    {playedArenas.includes(type) ? '✓ ' : ''}{type}
+                  </span>
+                ))}
+              </div>
+            </div>
+
             {roster.length === 0 ? (
               <div className="rounded-xl border border-zinc-200 bg-white p-12 text-center dark:border-zinc-800 dark:bg-zinc-900">
                 <p className="text-lg text-zinc-500">Your roster is empty!</p>
@@ -371,8 +389,16 @@ export default function BattlePage() {
               </div>
             ) : (
               <>
-                <p className="mt-2 text-zinc-500 dark:text-zinc-400">Choose your Pokemon for battle!</p>
-                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Fight with Random Button */}
+                <button
+                  onClick={() => startBattle(roster[Math.floor(Math.random() * roster.length)])}
+                  className="mb-6 w-full rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 py-5 text-xl font-bold text-white shadow-lg transition-all hover:from-purple-700 hover:to-pink-700 hover:shadow-xl"
+                >
+                  🎲 Fight with Random Pokemon!
+                </button>
+
+                <p className="mb-4 text-zinc-500 dark:text-zinc-400">Or choose your Pokemon:</p>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {roster.map((pokemon) => (
                     <button
                       key={pokemon.id}
@@ -598,28 +624,7 @@ export default function BattlePage() {
           </div>
         )}
 
-        {/* Arena Progress */}
-        <div className="mt-8 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-          <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-            Arena Progress: {playedArenas.length}/8
-          </h3>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {ARENA_TYPES.map(type => (
-              <span
-                key={type}
-                className={`rounded-full px-3 py-1 text-sm font-medium ${
-                  playedArenas.includes(type)
-                    ? 'text-white'
-                    : 'bg-zinc-200 text-zinc-400 dark:bg-zinc-700'
-                }`}
-                style={playedArenas.includes(type) ? { backgroundColor: TYPE_COLORS[type] } : {}}
-              >
-                {playedArenas.includes(type) ? '✓ ' : ''}{type}
-              </span>
-            ))}
-          </div>
-        </div>
-      </main>
+        </main>
     </div>
   );
 }

@@ -9,6 +9,7 @@ export default function Home() {
   const [username, setUsername] = useState<string | null>(null);
   const [completedArenas, setCompletedArenas] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showNameChangeModal, setShowNameChangeModal] = useState(false);
 
   useEffect(() => {
     // Load from localStorage on mount
@@ -24,9 +25,19 @@ export default function Home() {
     setIsLoading(false);
   }, []);
 
-  const handleLogout = () => {
+  const handleNameChange = () => {
+    setShowNameChangeModal(true);
+  };
+
+  const confirmNameChange = () => {
+    // Clear ALL game data - new name = fresh start
     localStorage.removeItem('pokemon-username');
+    localStorage.removeItem('pokemon-badges');
+    localStorage.removeItem('pokemon-roster');
+    localStorage.removeItem('pokemon-battle-stats');
     setUsername(null);
+    setCompletedArenas([]);
+    setShowNameChangeModal(false);
   };
 
   // Show loading while checking localStorage
@@ -65,12 +76,46 @@ export default function Home() {
             </p>
           </div>
           <button
-            onClick={handleLogout}
+            onClick={handleNameChange}
             className="rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
           >
             Change Name
           </button>
         </div>
+
+        {/* Name Change Confirmation Modal */}
+        {showNameChangeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="mx-4 max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                ⚠️ Start Fresh?
+              </h2>
+              <p className="mt-3 text-zinc-600 dark:text-zinc-400">
+                Changing your name will <strong>reset all your progress</strong>:
+              </p>
+              <ul className="mt-2 space-y-1 text-sm text-zinc-500 dark:text-zinc-400">
+                <li>• Your roster will be cleared</li>
+                <li>• Arena badges will reset to 0/8</li>
+                <li>• Battle stats (Wins/Losses/XP) will reset</li>
+                <li>• Leaderboard entries stay (they&apos;re saved to the database)</li>
+              </ul>
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={() => setShowNameChangeModal(false)}
+                  className="flex-1 rounded-lg bg-zinc-200 px-4 py-2 font-medium hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmNameChange}
+                  className="flex-1 rounded-lg bg-red-500 px-4 py-2 font-medium text-white hover:bg-red-600"
+                >
+                  Yes, Start Fresh
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Progress */}
         <div className="mb-8 rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
