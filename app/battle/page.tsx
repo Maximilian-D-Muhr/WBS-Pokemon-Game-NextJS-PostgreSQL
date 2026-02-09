@@ -50,7 +50,7 @@ export default function BattlePage() {
         </h1>
 
         <p className="mt-2 text-zinc-500 dark:text-zinc-400">
-          Choose a Pokémon from your roster and battle a random opponent.
+          Choose a Pokémon from your roster and battle a random opponent..
         </p>
 
         <button
