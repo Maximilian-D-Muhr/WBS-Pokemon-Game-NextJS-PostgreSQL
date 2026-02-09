@@ -120,36 +120,29 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
 
   const data: LeaderboardInput = parsed.data;
 
-  // Check if user already has 3 entries - if so, only keep if this is higher
-  const existingEntries = await db`
+  // One entry per username — update if new score is higher, insert if new
+  const existingEntry = await db`
     SELECT id, score FROM leaderboard
     WHERE username = ${data.username}
-    ORDER BY score DESC
-    LIMIT 3
+    LIMIT 1
   `;
 
-  // If user has 3 entries, check if new score is higher than lowest
-  if (existingEntries.length >= 3) {
-    const lowestScore = existingEntries[2].score;
-    if (data.score <= lowestScore) {
-      // New score isn't good enough, don't add
+  if (existingEntry.length > 0) {
+    // User already has an entry — only update if new score is higher
+    if (data.score <= existingEntry[0].score) {
       return { success: true, caught: false };
     }
-    // Delete the lowest entry to make room
-    await db`DELETE FROM leaderboard WHERE id = ${existingEntries[2].id}`;
-  }
-
-  // Insert legitimate score with XP
-  try {
+    // Update existing entry with higher score
+    await db`
+      UPDATE leaderboard
+      SET score = ${data.score}, xp = ${data.xp || 0}, created_at = NOW()
+      WHERE id = ${existingEntry[0].id}
+    `;
+  } else {
+    // New user — insert first entry
     await db`
       INSERT INTO leaderboard (username, score, xp)
       VALUES (${data.username}, ${data.score}, ${data.xp || 0})
-    `;
-  } catch {
-    // Fallback if xp column doesn't exist yet
-    await db`
-      INSERT INTO leaderboard (username, score)
-      VALUES (${data.username}, ${data.score})
     `;
   }
 
