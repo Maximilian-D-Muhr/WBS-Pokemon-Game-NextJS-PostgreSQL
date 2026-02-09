@@ -113,7 +113,7 @@ export default function BattlePage() {
 
   // ============ WAQAR'S STATS SYSTEM ============
 
-  function handleBattleResult(result: BattleResult, xpDelta: number) {
+  async function handleBattleResult(result: BattleResult, xpDelta: number) {
     const newStats = {
       wins: result === 'win' ? stats.wins + 1 : stats.wins,
       losses: result === 'loss' ? stats.losses + 1 : stats.losses,
@@ -123,6 +123,12 @@ export default function BattlePage() {
     localStorage.setItem('pokemon-battle-stats', JSON.stringify(newStats));
     setLastResult(result);
     setShowModal(true);
+
+    // Auto-save to leaderboard after every win
+    if (result === 'win' && username) {
+      const currentScore = score + xpDelta; // score state hasn't updated yet, so add manually
+      await addToLeaderboard({ username, score: currentScore, xp: newStats.xp });
+    }
   }
 
   // ============ CHAMPION BADGE SYSTEM ============
@@ -310,11 +316,7 @@ export default function BattlePage() {
     setIsPlayerTurn(true);
   };
 
-  const endAndSaveScore = async () => {
-    // Only submit once when ending session
-    if (score > 0 && username) {
-      await addToLeaderboard({ username, score, xp: stats.xp });
-    }
+  const viewLeaderboard = () => {
     router.push('/leaderboard');
   };
 
@@ -525,10 +527,10 @@ export default function BattlePage() {
                     🎯 Continue Battle
                   </button>
                   <button
-                    onClick={endAndSaveScore}
+                    onClick={viewLeaderboard}
                     className="rounded-xl border border-zinc-300 px-6 py-4 font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
                   >
-                    🏆 End & Save Score
+                    🏆 View Leaderboard
                   </button>
                 </>
               )}
@@ -573,10 +575,10 @@ export default function BattlePage() {
                       Continue
                     </button>
                     <button
-                      onClick={endAndSaveScore}
+                      onClick={viewLeaderboard}
                       className="flex-1 rounded-lg bg-yellow-500 px-4 py-2 font-medium text-black hover:bg-yellow-400"
                     >
-                      🏆 Save to Leaderboard
+                      🏆 View Leaderboard
                     </button>
                   </>
                 )}
