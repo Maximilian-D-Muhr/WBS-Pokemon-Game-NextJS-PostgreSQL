@@ -22,6 +22,7 @@ const leaderboardEntrySchema = z.object({
     .max(30, "Username too long")
     .regex(/^[a-zA-Z0-9_-]+$/, "Only letters, numbers, _ and - allowed"),
   score: z.number().int().nonnegative(),
+  xp: z.number().int().nonnegative().optional(),
 });
 
 type LeaderboardInput = z.infer<typeof leaderboardEntrySchema>;
@@ -119,11 +120,29 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
 
   const data: LeaderboardInput = parsed.data;
 
-  // Insert legitimate score
-  const [row] = await db`
-    INSERT INTO leaderboard (username, score)
-    VALUES (${data.username}, ${data.score})
-    RETURNING id, username, score, created_at
+  // Check if user already has 3 entries - if so, only keep if this is higher
+  const existingEntries = await db`
+    SELECT id, score FROM leaderboard
+    WHERE username = ${data.username}
+    ORDER BY score DESC
+    LIMIT 3
+  `;
+
+  // If user has 3 entries, check if new score is higher than lowest
+  if (existingEntries.length >= 3) {
+    const lowestScore = existingEntries[2].score;
+    if (data.score <= lowestScore) {
+      // New score isn't good enough, don't add
+      return { success: true, caught: false };
+    }
+    // Delete the lowest entry to make room
+    await db`DELETE FROM leaderboard WHERE id = ${existingEntries[2].id}`;
+  }
+
+  // Insert legitimate score with XP
+  await db`
+    INSERT INTO leaderboard (username, score, xp)
+    VALUES (${data.username}, ${data.score}, ${data.xp || 0})
   `;
 
   revalidatePath("/leaderboard");
@@ -136,7 +155,7 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
 
 export async function getLeaderboard() {
   const rows = await db`
-    SELECT id, username, score, created_at
+    SELECT id, username, score, COALESCE(xp, 0) as xp, created_at
     FROM leaderboard
     ORDER BY score DESC
     LIMIT 100

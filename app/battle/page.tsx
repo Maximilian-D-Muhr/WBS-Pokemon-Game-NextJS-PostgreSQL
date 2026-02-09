@@ -313,7 +313,7 @@ export default function BattlePage() {
   const endAndSaveScore = async () => {
     // Only submit once when ending session
     if (score > 0 && username) {
-      await addToLeaderboard({ username, score });
+      await addToLeaderboard({ username, score, xp: stats.xp });
     }
     router.push('/leaderboard');
   };

@@ -4,6 +4,7 @@ interface LeaderboardEntry {
   id: number;
   username: string;
   score: number;
+  xp: number;
   created_at: string;
 }
 
@@ -55,6 +56,9 @@ export default async function LeaderboardPage() {
                       <th className="px-4 py-3 text-right text-sm font-medium text-zinc-500 dark:text-zinc-400">
                         Score
                       </th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                        XP
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -83,6 +87,9 @@ export default async function LeaderboardPage() {
                         </td>
                         <td className="px-4 py-3 text-right font-mono text-zinc-600 dark:text-zinc-400">
                           {entry.score.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono text-yellow-600 dark:text-yellow-400">
+                          {entry.xp.toLocaleString()}
                         </td>
                       </tr>
                     ))}
