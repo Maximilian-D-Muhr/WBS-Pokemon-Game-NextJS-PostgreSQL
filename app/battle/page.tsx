@@ -254,174 +254,51 @@ export default function BattlePage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">Battle Arena</h1>
+      <main className="mx-auto max-w-6xl px-4 py-8">
+        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
+          Battle
+        </h1>
 
-        {score > 0 && (
-          <div className="mt-2 inline-block rounded-full bg-yellow-100 px-4 py-1 text-sm font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-            Score: {score}
-          </div>
-        )}
+        <p className="mt-2 text-zinc-500 dark:text-zinc-400">
+          Choose a Pokémon from your roster and battle a random opponent..
+        </p>
 
-        {/* Select Pokemon */}
-        {battleState === 'select' && (
-          <div className="mt-8">
-            {roster.length === 0 ? (
-              <div className="rounded-xl border border-zinc-200 bg-white p-12 text-center dark:border-zinc-800 dark:bg-zinc-900">
-                <p className="text-lg text-zinc-500">Your roster is empty!</p>
-                <p className="mt-2 text-sm text-zinc-400">Add Pokemon to your roster first.</p>
-                <Link href="/" className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700">
-                  Browse Arenas
-                </Link>
-              </div>
-            ) : (
-              <>
-                <p className="mt-2 text-zinc-500 dark:text-zinc-400">Choose your Pokemon for battle!</p>
-                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {roster.map((pokemon) => (
-                    <button
-                      key={pokemon.id}
-                      onClick={() => startBattle(pokemon)}
-                      className="group rounded-xl border border-zinc-200 bg-white p-4 text-left transition-all hover:border-blue-300 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700"
-                    >
-                      <div className="flex items-center gap-4">
-                        <Image
-                          src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.id}.png`}
-                          alt={pokemon.name}
-                          width={64}
-                          height={64}
-                          className="transition-transform group-hover:scale-110"
-                        />
-                        <div>
-                          <h3 className="font-semibold capitalize text-zinc-900 dark:text-zinc-100">{pokemon.name}</h3>
-                          <div className="mt-1 flex gap-1">
-                            {pokemon.types.map((type) => (
-                              <span key={type} className="rounded-full px-2 py-0.5 text-xs text-white" style={{ backgroundColor: TYPE_COLORS[type] }}>{type}</span>
-                            ))}
-                          </div>
-                          <p className="mt-1 text-xs text-zinc-400">HP: {pokemon.stats.hp} | ATK: {pokemon.stats.attack}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
+        <button
+          className="mt-6 rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
+          onClick={finishBattle}
+        >
+          Finish Battle
+        </button>
 
-        {/* Battle Arena */}
-        {(battleState === 'battle' || battleState === 'victory' || battleState === 'defeat') && playerPokemon && opponentPokemon && (
-          <div className="mt-8">
-            {/* Battle Field */}
-            <div className="rounded-xl border border-zinc-200 bg-gradient-to-b from-sky-100 to-green-100 p-6 dark:border-zinc-800 dark:from-zinc-800 dark:to-zinc-900">
-              <div className="grid grid-cols-2 gap-8">
-                {/* Opponent */}
-                <div className="text-center">
-                  <div className="mb-2 rounded-lg bg-white/80 p-2 dark:bg-zinc-800/80">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold capitalize text-zinc-900 dark:text-zinc-100">{opponentPokemon.name}</span>
-                      <span className="text-sm text-zinc-500">{opponentPokemon.currentHp}/{opponentPokemon.maxHp}</span>
-                    </div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-                      <div
-                        className={`h-full transition-all duration-300 ${getHpBarColor(opponentPokemon.currentHp, opponentPokemon.maxHp)}`}
-                        style={{ width: `${(opponentPokemon.currentHp / opponentPokemon.maxHp) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                  <Image
-                    src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${opponentPokemon.id}.png`}
-                    alt={opponentPokemon.name}
-                    width={150}
-                    height={150}
-                    className={`mx-auto ${battleState === 'victory' ? 'opacity-30 grayscale' : ''}`}
-                  />
-                </div>
+        {showModal && (
+          <div className="mt-6 max-w-sm rounded bg-white p-4 shadow dark:bg-zinc-900">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+              Battle Result
+            </h2>
 
-                {/* Player */}
-                <div className="text-center">
-                  <div className="mb-2 rounded-lg bg-white/80 p-2 dark:bg-zinc-800/80">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold capitalize text-zinc-900 dark:text-zinc-100">{playerPokemon.name}</span>
-                      <span className="text-sm text-zinc-500">{playerPokemon.currentHp}/{playerPokemon.maxHp}</span>
-                    </div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-                      <div
-                        className={`h-full transition-all duration-300 ${getHpBarColor(playerPokemon.currentHp, playerPokemon.maxHp)}`}
-                        style={{ width: `${(playerPokemon.currentHp / playerPokemon.maxHp) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                  <Image
-                    src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${playerPokemon.id}.png`}
-                    alt={playerPokemon.name}
-                    width={150}
-                    height={150}
-                    className={`mx-auto ${battleState === 'defeat' ? 'opacity-30 grayscale' : ''}`}
-                  />
-                </div>
-              </div>
-            </div>
+            <p className="mt-2 text-sm">
+              Result:{" "}
+              <span
+                className={
+                  lastResult === "win"
+                    ? "text-green-600"
+                    : "text-red-600"
+                }
+              >
+                {lastResult?.toUpperCase()}
+              </span>
+            </p>
 
-            {/* Battle Log */}
-            <div className="mt-4 h-32 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-              {battleLog.map((log, i) => (
-                <p
-                  key={i}
-                  className={`text-sm ${
-                    log.type === 'player' ? 'text-blue-600 dark:text-blue-400' :
-                    log.type === 'opponent' ? 'text-red-600 dark:text-red-400' :
-                    'text-zinc-500'
-                  }`}
-                >
-                  {log.message}
-                </p>
-              ))}
-            </div>
+            <p className="mt-2">Wins: {stats.wins}</p>
+            <p>Losses: {stats.losses}</p>
+            <p>XP: {stats.xp}</p>
 
-            {/* Action Buttons */}
-            <div className="mt-4 flex gap-4">
-              {battleState === 'battle' && (
-                <button
-                  onClick={playerAttack}
-                  disabled={!isPlayerTurn || isAnimating}
-                  className={`flex-1 rounded-xl py-4 text-lg font-bold transition-all ${
-                    isPlayerTurn && !isAnimating
-                      ? 'bg-red-500 text-white hover:bg-red-600'
-                      : 'cursor-not-allowed bg-zinc-300 text-zinc-500 dark:bg-zinc-700'
-                  }`}
-                >
-                  {isPlayerTurn ? '⚔️ Attack!' : 'Opponent attacking...'}
-                </button>
-              )}
-
-              {battleState === 'victory' && (
-                <>
-                  <button
-                    onClick={continueBattle}
-                    className="flex-1 rounded-xl bg-green-500 py-4 text-lg font-bold text-white hover:bg-green-600"
-                  >
-                    🎯 Continue Battle
-                  </button>
-                  <button
-                    onClick={resetBattle}
-                    className="rounded-xl border border-zinc-300 px-6 py-4 font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                  >
-                    End & Save Score
-                  </button>
-                </>
-              )}
-
-              {battleState === 'defeat' && (
-                <button
-                  onClick={resetBattle}
-                  className="flex-1 rounded-xl bg-blue-500 py-4 text-lg font-bold text-white hover:bg-blue-600"
-                >
-                  Try Again
-                </button>
-              )}
-            </div>
+            <button
+              className="mt-4 rounded bg-zinc-200 px-3 py-1 text-sm hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+              onClick={() => setShowModal(false)}
+            >
+              Close
+            </button>
           </div>
         )}
       </main>
