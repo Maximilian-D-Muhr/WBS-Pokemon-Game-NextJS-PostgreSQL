@@ -23,6 +23,7 @@ const leaderboardEntrySchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/, "Only letters, numbers, _ and - allowed"),
   score: z.number().int().nonnegative(),
   xp: z.number().int().nonnegative().optional(),
+  isChampion: z.boolean().optional(),
 });
 
 type LeaderboardInput = z.infer<typeof leaderboardEntrySchema>;
@@ -54,11 +55,6 @@ function detectCheating(input: unknown): { isSuspicious: boolean; reason: string
   // Check for impossibly high scores
   if (typeof data.score === 'number' && data.score > MAX_LEGITIMATE_SCORE) {
     return { isSuspicious: true, reason: `Score too high: ${data.score} (max: ${MAX_LEGITIMATE_SCORE})` };
-  }
-
-  // Check for negative scores (overflow attempt?)
-  if (typeof data.score === 'number' && data.score < 0) {
-    return { isSuspicious: true, reason: `Negative score attempt: ${data.score}` };
   }
 
   return { isSuspicious: false, reason: "" };
@@ -120,7 +116,9 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
 
   const data: LeaderboardInput = parsed.data;
 
-  // One entry per username — update if new score is higher, insert if new
+  const isChampion = data.isChampion || false;
+
+  // One entry per username — always update score/xp/champion status
   const existingEntry = await db`
     SELECT id, score FROM leaderboard
     WHERE username = ${data.username}
@@ -128,21 +126,17 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
   `;
 
   if (existingEntry.length > 0) {
-    // User already has an entry — only update if new score is higher
-    if (data.score <= existingEntry[0].score) {
-      return { success: true, caught: false };
-    }
-    // Update existing entry with higher score
+    // Update existing entry with latest score, xp and champion status
     await db`
       UPDATE leaderboard
-      SET score = ${data.score}, xp = ${data.xp || 0}, created_at = NOW()
+      SET score = ${data.score}, xp = ${data.xp || 0}, is_champion = ${isChampion}, created_at = NOW()
       WHERE id = ${existingEntry[0].id}
     `;
   } else {
     // New user — insert first entry
     await db`
-      INSERT INTO leaderboard (username, score, xp)
-      VALUES (${data.username}, ${data.score}, ${data.xp || 0})
+      INSERT INTO leaderboard (username, score, xp, is_champion)
+      VALUES (${data.username}, ${data.score}, ${data.xp || 0}, ${isChampion})
     `;
   }
 
@@ -157,16 +151,16 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
 export async function getLeaderboard() {
   try {
     const rows = await db`
-      SELECT id, username, score, COALESCE(xp, 0) as xp, created_at
+      SELECT id, username, score, COALESCE(xp, 0) as xp, COALESCE(is_champion, false) as is_champion, created_at
       FROM leaderboard
       ORDER BY score DESC
       LIMIT 100
     `;
     return rows;
   } catch {
-    // Fallback if xp column doesn't exist yet
+    // Fallback if columns don't exist yet
     const rows = await db`
-      SELECT id, username, score, 0 as xp, created_at
+      SELECT id, username, score, 0 as xp, false as is_champion, created_at
       FROM leaderboard
       ORDER BY score DESC
       LIMIT 100
