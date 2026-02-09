@@ -3,7 +3,11 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { TYPE_COLORS } from '@/app/lib/pokeapi';
+import { addToLeaderboard } from '@/app/lib/leaderboard';
+
+// ============ INTERFACES ============
 
 interface RosterPokemon {
   id: number;
@@ -30,6 +34,24 @@ interface BattleLog {
   type: 'player' | 'opponent' | 'system';
 }
 
+// Waqar's Stats System
+type BattleStats = {
+  wins: number;
+  losses: number;
+  xp: number;
+};
+
+type BattleResult = 'win' | 'loss';
+
+const initialStats: BattleStats = {
+  wins: 0,
+  losses: 0,
+  xp: 0,
+};
+
+// Arena types that count for badge progress
+const ARENA_TYPES = ['fire', 'water', 'electric', 'grass', 'psychic', 'rock', 'ice', 'dragon'];
+
 // Random Pokemon IDs for opponents (Gen 1-4, excluding legendaries)
 const OPPONENT_POOL = [
   // Gen 1
@@ -54,8 +76,12 @@ const OPPONENT_POOL = [
 ];
 
 export default function BattlePage() {
+  const router = useRouter();
+
+  // Battle State
   const [roster, setRoster] = useState<RosterPokemon[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [username, setUsername] = useState<string>('');
   const [battleState, setBattleState] = useState<BattleState>('select');
   const [playerPokemon, setPlayerPokemon] = useState<BattlePokemon | null>(null);
   const [opponentPokemon, setOpponentPokemon] = useState<BattlePokemon | null>(null);
@@ -64,18 +90,66 @@ export default function BattlePage() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [score, setScore] = useState(0);
 
+  // Champion Badge State
+  const [playedArenas, setPlayedArenas] = useState<string[]>([]);
+  const [showChampionBadge, setShowChampionBadge] = useState(false);
+
+  // Waqar's Stats State
+  const [stats, setStats] = useState<BattleStats>(initialStats);
+  const [showModal, setShowModal] = useState(false);
+  const [lastResult, setLastResult] = useState<BattleResult | null>(null);
+
   useEffect(() => {
     const saved = localStorage.getItem('pokemon-roster');
+    const savedBadges = localStorage.getItem('pokemon-badges');
+    const savedStats = localStorage.getItem('pokemon-battle-stats');
+    const savedUsername = localStorage.getItem('pokemon-username');
     setRoster(saved ? JSON.parse(saved) : []);
+    setPlayedArenas(savedBadges ? JSON.parse(savedBadges) : []);
+    setStats(savedStats ? JSON.parse(savedStats) : initialStats);
+    setUsername(savedUsername || 'Anonymous');
     setIsLoaded(true);
   }, []);
 
+  // ============ WAQAR'S STATS SYSTEM ============
+
+  function handleBattleResult(result: BattleResult, xpDelta: number) {
+    const newStats = {
+      wins: result === 'win' ? stats.wins + 1 : stats.wins,
+      losses: result === 'loss' ? stats.losses + 1 : stats.losses,
+      xp: Math.max(0, stats.xp + xpDelta),
+    };
+    setStats(newStats);
+    localStorage.setItem('pokemon-battle-stats', JSON.stringify(newStats));
+    setLastResult(result);
+    setShowModal(true);
+  }
+
+  // ============ CHAMPION BADGE SYSTEM ============
+
+  const markArenasPlayed = (pokemonTypes: string[]) => {
+    const currentBadges = JSON.parse(localStorage.getItem('pokemon-badges') || '[]');
+    const newArenas = pokemonTypes.filter(type =>
+      ARENA_TYPES.includes(type) && !currentBadges.includes(type)
+    );
+
+    if (newArenas.length > 0) {
+      const updatedBadges = [...currentBadges, ...newArenas];
+      localStorage.setItem('pokemon-badges', JSON.stringify(updatedBadges));
+      setPlayedArenas(updatedBadges);
+
+      if (updatedBadges.length >= 8 && currentBadges.length < 8) {
+        setShowChampionBadge(true);
+      }
+    }
+  };
+
+  // ============ BATTLE LOGIC ============
+
   const generateOpponent = async (): Promise<BattlePokemon> => {
     const randomId = OPPONENT_POOL[Math.floor(Math.random() * OPPONENT_POOL.length)];
-
     const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${randomId}`);
     const data = await res.json();
-
     const hp = data.stats.find((s: { stat: { name: string } }) => s.stat.name === 'hp')?.base_stat || 50;
 
     return {
@@ -105,12 +179,10 @@ export default function BattlePage() {
     };
 
     const opponent = await generateOpponent();
-
     setPlayerPokemon(player);
     setOpponentPokemon(opponent);
     setBattleState('battle');
 
-    // Determine who goes first based on speed
     const playerFirst = player.stats.speed >= opponent.stats.speed;
     setIsPlayerTurn(playerFirst);
 
@@ -122,17 +194,15 @@ export default function BattlePage() {
 
     setIsAnimating(false);
 
-    // If opponent goes first, trigger their attack
     if (!playerFirst) {
       setTimeout(() => opponentAttack(player, opponent), 1000);
     }
   };
 
   const calculateDamage = (attacker: BattlePokemon, defender: BattlePokemon): number => {
-    // Base damage formula with some randomness
     const baseDamage = Math.max(1, attacker.stats.attack - defender.stats.defense / 2);
-    const randomFactor = 0.85 + Math.random() * 0.3; // 85% - 115%
-    const criticalHit = Math.random() < 0.1 ? 1.5 : 1; // 10% crit chance
+    const randomFactor = 0.85 + Math.random() * 0.3;
+    const criticalHit = Math.random() < 0.1 ? 1.5 : 1;
     return Math.floor(baseDamage * randomFactor * criticalHit);
   };
 
@@ -151,7 +221,6 @@ export default function BattlePage() {
     setOpponentPokemon({ ...opponentPokemon, currentHp: newOpponentHp });
 
     if (newOpponentHp <= 0) {
-      // Victory!
       setTimeout(() => {
         const earnedScore = Math.floor(opponentPokemon.maxHp + opponentPokemon.stats.attack);
         setScore(prev => prev + earnedScore);
@@ -161,9 +230,12 @@ export default function BattlePage() {
         }]);
         setBattleState('victory');
         setIsAnimating(false);
+
+        // Track arena + Waqar's stats
+        markArenasPlayed(playerPokemon.types);
+        handleBattleResult('win', earnedScore);
       }, 500);
     } else {
-      // Opponent's turn
       setIsPlayerTurn(false);
       setTimeout(() => {
         opponentAttack(playerPokemon, { ...opponentPokemon, currentHp: newOpponentHp });
@@ -185,7 +257,6 @@ export default function BattlePage() {
     setPlayerPokemon({ ...player, currentHp: newPlayerHp });
 
     if (newPlayerHp <= 0) {
-      // Defeat
       setTimeout(() => {
         setBattleLog(prev => [...prev, {
           message: `${player.name.toUpperCase()} fainted!`,
@@ -193,9 +264,12 @@ export default function BattlePage() {
         }]);
         setBattleState('defeat');
         setIsAnimating(false);
+
+        // Track arena + Waqar's stats (participation counts!)
+        markArenasPlayed(player.types);
+        handleBattleResult('loss', -10);
       }, 500);
     } else {
-      // Player's turn
       setIsPlayerTurn(true);
       setIsAnimating(false);
     }
@@ -203,7 +277,7 @@ export default function BattlePage() {
 
   const continueBattle = async () => {
     if (!playerPokemon) return;
-
+    setShowModal(false);
     setIsAnimating(true);
     setBattleLog([{ message: 'Finding new opponent...', type: 'system' }]);
 
@@ -226,13 +300,26 @@ export default function BattlePage() {
     }
   };
 
-  const resetBattle = () => {
+  const resetBattle = async () => {
+    // Submit score to leaderboard if score > 0
+    if (score > 0 && username) {
+      await addToLeaderboard({ username, score });
+    }
+
+    setShowModal(false);
     setBattleState('select');
     setPlayerPokemon(null);
     setOpponentPokemon(null);
     setBattleLog([]);
     setScore(0);
     setIsPlayerTurn(true);
+  };
+
+  const endAndSaveScore = async () => {
+    if (score > 0 && username) {
+      await addToLeaderboard({ username, score });
+    }
+    router.push('/leaderboard');
   };
 
   const getHpBarColor = (current: number, max: number) => {
@@ -254,53 +341,284 @@ export default function BattlePage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
-          Battle
-        </h1>
+      <main className="mx-auto max-w-4xl px-4 py-8">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">Battle Arena</h1>
+          {/* Waqar's Stats Display */}
+          <div className="flex gap-4 text-sm">
+            <span className="text-green-600">Wins: {stats.wins}</span>
+            <span className="text-red-600">Losses: {stats.losses}</span>
+            <span className="text-yellow-600">XP: {stats.xp}</span>
+          </div>
+        </div>
 
-        <p className="mt-2 text-zinc-500 dark:text-zinc-400">
-          Choose a Pokémon from your roster and battle a random opponent..
-        </p>
-
-        <button
-          className="mt-6 rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
-          onClick={finishBattle}
-        >
-          Finish Battle
-        </button>
-
-        {showModal && (
-          <div className="mt-6 max-w-sm rounded bg-white p-4 shadow dark:bg-zinc-900">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-              Battle Result
-            </h2>
-
-            <p className="mt-2 text-sm">
-              Result:{" "}
-              <span
-                className={
-                  lastResult === "win"
-                    ? "text-green-600"
-                    : "text-red-600"
-                }
-              >
-                {lastResult?.toUpperCase()}
-              </span>
-            </p>
-
-            <p className="mt-2">Wins: {stats.wins}</p>
-            <p>Losses: {stats.losses}</p>
-            <p>XP: {stats.xp}</p>
-
-            <button
-              className="mt-4 rounded bg-zinc-200 px-3 py-1 text-sm hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-              onClick={() => setShowModal(false)}
-            >
-              Close
-            </button>
+        {score > 0 && (
+          <div className="mt-2 inline-block rounded-full bg-yellow-100 px-4 py-1 text-sm font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+            Session Score: {score}
           </div>
         )}
+
+        {/* Select Pokemon */}
+        {battleState === 'select' && (
+          <div className="mt-8">
+            {roster.length === 0 ? (
+              <div className="rounded-xl border border-zinc-200 bg-white p-12 text-center dark:border-zinc-800 dark:bg-zinc-900">
+                <p className="text-lg text-zinc-500">Your roster is empty!</p>
+                <p className="mt-2 text-sm text-zinc-400">Add Pokemon to your roster first.</p>
+                <Link href="/" className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700">
+                  Browse Arenas
+                </Link>
+              </div>
+            ) : (
+              <>
+                <p className="mt-2 text-zinc-500 dark:text-zinc-400">Choose your Pokemon for battle!</p>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {roster.map((pokemon) => (
+                    <button
+                      key={pokemon.id}
+                      onClick={() => startBattle(pokemon)}
+                      className="group rounded-xl border border-zinc-200 bg-white p-4 text-left transition-all hover:border-blue-300 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-blue-700"
+                    >
+                      <div className="flex items-center gap-4">
+                        <Image
+                          src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.id}.png`}
+                          alt={pokemon.name}
+                          width={64}
+                          height={64}
+                          className="transition-transform group-hover:scale-110"
+                        />
+                        <div>
+                          <h3 className="font-semibold capitalize text-zinc-900 dark:text-zinc-100">{pokemon.name}</h3>
+                          <div className="mt-1 flex gap-1">
+                            {pokemon.types.map((type) => (
+                              <span key={type} className="rounded-full px-2 py-0.5 text-xs text-white" style={{ backgroundColor: TYPE_COLORS[type] }}>{type}</span>
+                            ))}
+                          </div>
+                          <p className="mt-1 text-xs text-zinc-400">HP: {pokemon.stats.hp} | ATK: {pokemon.stats.attack}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Battle Arena */}
+        {(battleState === 'battle' || battleState === 'victory' || battleState === 'defeat') && playerPokemon && opponentPokemon && (
+          <div className="mt-8">
+            <div className="rounded-xl border border-zinc-200 bg-gradient-to-b from-sky-100 to-green-100 p-6 dark:border-zinc-800 dark:from-zinc-800 dark:to-zinc-900">
+              <div className="grid grid-cols-2 gap-8">
+                {/* Opponent */}
+                <div className="text-center">
+                  <div className="mb-2 rounded-lg bg-white/80 p-2 dark:bg-zinc-800/80">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold capitalize text-zinc-900 dark:text-zinc-100">{opponentPokemon.name}</span>
+                      <span className="text-sm text-zinc-500">{opponentPokemon.currentHp}/{opponentPokemon.maxHp}</span>
+                    </div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                      <div
+                        className={`h-full transition-all duration-300 ${getHpBarColor(opponentPokemon.currentHp, opponentPokemon.maxHp)}`}
+                        style={{ width: `${(opponentPokemon.currentHp / opponentPokemon.maxHp) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <Image
+                    src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${opponentPokemon.id}.png`}
+                    alt={opponentPokemon.name}
+                    width={150}
+                    height={150}
+                    className={`mx-auto ${battleState === 'victory' ? 'opacity-30 grayscale' : ''}`}
+                  />
+                </div>
+
+                {/* Player */}
+                <div className="text-center">
+                  <div className="mb-2 rounded-lg bg-white/80 p-2 dark:bg-zinc-800/80">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold capitalize text-zinc-900 dark:text-zinc-100">{playerPokemon.name}</span>
+                      <span className="text-sm text-zinc-500">{playerPokemon.currentHp}/{playerPokemon.maxHp}</span>
+                    </div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                      <div
+                        className={`h-full transition-all duration-300 ${getHpBarColor(playerPokemon.currentHp, playerPokemon.maxHp)}`}
+                        style={{ width: `${(playerPokemon.currentHp / playerPokemon.maxHp) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <Image
+                    src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${playerPokemon.id}.png`}
+                    alt={playerPokemon.name}
+                    width={150}
+                    height={150}
+                    className={`mx-auto ${battleState === 'defeat' ? 'opacity-30 grayscale' : ''}`}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Battle Log */}
+            <div className="mt-4 h-32 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+              {battleLog.map((log, i) => (
+                <p
+                  key={i}
+                  className={`text-sm ${
+                    log.type === 'player' ? 'text-blue-600 dark:text-blue-400' :
+                    log.type === 'opponent' ? 'text-red-600 dark:text-red-400' :
+                    'text-zinc-500'
+                  }`}
+                >
+                  {log.message}
+                </p>
+              ))}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-4 flex gap-4">
+              {battleState === 'battle' && (
+                <button
+                  onClick={playerAttack}
+                  disabled={!isPlayerTurn || isAnimating}
+                  className={`flex-1 rounded-xl py-4 text-lg font-bold transition-all ${
+                    isPlayerTurn && !isAnimating
+                      ? 'bg-red-500 text-white hover:bg-red-600'
+                      : 'cursor-not-allowed bg-zinc-300 text-zinc-500 dark:bg-zinc-700'
+                  }`}
+                >
+                  {isPlayerTurn ? '⚔️ Attack!' : 'Opponent attacking...'}
+                </button>
+              )}
+
+              {battleState === 'victory' && !showModal && (
+                <>
+                  <button
+                    onClick={continueBattle}
+                    className="flex-1 rounded-xl bg-green-500 py-4 text-lg font-bold text-white hover:bg-green-600"
+                  >
+                    🎯 Continue Battle
+                  </button>
+                  <button
+                    onClick={endAndSaveScore}
+                    className="rounded-xl border border-zinc-300 px-6 py-4 font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  >
+                    🏆 End & Save Score
+                  </button>
+                </>
+              )}
+
+              {battleState === 'defeat' && !showModal && (
+                <button
+                  onClick={resetBattle}
+                  className="flex-1 rounded-xl bg-blue-500 py-4 text-lg font-bold text-white hover:bg-blue-600"
+                >
+                  Try Again
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Waqar's Result Modal */}
+        {showModal && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
+            <div className="mx-4 max-w-sm rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+              <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+                Battle Result
+              </h2>
+              <p className="mt-4 text-lg">
+                Result:{' '}
+                <span className={lastResult === 'win' ? 'font-bold text-green-600' : 'font-bold text-red-600'}>
+                  {lastResult?.toUpperCase()}
+                </span>
+              </p>
+              <div className="mt-4 space-y-1">
+                <p>Wins: {stats.wins}</p>
+                <p>Losses: {stats.losses}</p>
+                <p>Total XP: {stats.xp}</p>
+              </div>
+              <div className="mt-6 flex gap-3">
+                {lastResult === 'win' && (
+                  <>
+                    <button
+                      onClick={continueBattle}
+                      className="flex-1 rounded-lg bg-green-500 px-4 py-2 font-medium text-white hover:bg-green-600"
+                    >
+                      Continue
+                    </button>
+                    <button
+                      onClick={endAndSaveScore}
+                      className="flex-1 rounded-lg bg-yellow-500 px-4 py-2 font-medium text-black hover:bg-yellow-400"
+                    >
+                      🏆 Save to Leaderboard
+                    </button>
+                  </>
+                )}
+                {lastResult === 'loss' && (
+                  <button
+                    onClick={resetBattle}
+                    className="flex-1 rounded-lg bg-zinc-200 px-4 py-2 font-medium hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                  >
+                    Try Again
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Champion Badge Modal */}
+        {showChampionBadge && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+            <div className="mx-4 max-w-md animate-bounce rounded-2xl bg-gradient-to-br from-yellow-400 via-yellow-500 to-orange-500 p-1">
+              <div className="rounded-xl bg-zinc-900 p-8 text-center">
+                <div className="text-6xl">🏆</div>
+                <h2 className="mt-4 text-3xl font-bold text-yellow-400">CHAMPION!</h2>
+                <p className="mt-2 text-lg text-zinc-300">You&apos;ve battled in all 8 arenas!</p>
+                <p className="mt-1 text-sm text-zinc-400">You are now a true Pokemon Champion!</p>
+                <div className="mt-6 flex flex-wrap justify-center gap-2">
+                  {ARENA_TYPES.map(type => (
+                    <span
+                      key={type}
+                      className="rounded-full px-3 py-1 text-sm font-medium text-white"
+                      style={{ backgroundColor: TYPE_COLORS[type] }}
+                    >
+                      {type}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowChampionBadge(false)}
+                  className="mt-6 rounded-lg bg-yellow-500 px-8 py-3 font-bold text-black transition-colors hover:bg-yellow-400"
+                >
+                  Awesome! 🎉
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Arena Progress */}
+        <div className="mt-8 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <h3 className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            Arena Progress: {playedArenas.length}/8
+          </h3>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {ARENA_TYPES.map(type => (
+              <span
+                key={type}
+                className={`rounded-full px-3 py-1 text-sm font-medium ${
+                  playedArenas.includes(type)
+                    ? 'text-white'
+                    : 'bg-zinc-200 text-zinc-400 dark:bg-zinc-700'
+                }`}
+                style={playedArenas.includes(type) ? { backgroundColor: TYPE_COLORS[type] } : {}}
+              >
+                {playedArenas.includes(type) ? '✓ ' : ''}{type}
+              </span>
+            ))}
+          </div>
+        </div>
       </main>
     </div>
   );
