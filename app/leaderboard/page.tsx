@@ -29,7 +29,7 @@ export default async function LeaderboardPage() {
           Top scores from all trainers
         </p>
 
-        <div className="mt-8 grid gap-8 lg:grid-cols-2">
+        <div className={`mt-8 ${hallOfShame.length > 0 ? 'grid gap-8 lg:grid-cols-2' : ''}`}>
           {/* Leaderboard */}
           <div>
             <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
@@ -92,21 +92,15 @@ export default async function LeaderboardPage() {
             )}
           </div>
 
-          {/* Hall of Shame */}
-          <div>
-            <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold text-red-600 dark:text-red-400">
-              🚨 Hall of Shame
-            </h2>
-            <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-              Caught cheating? You end up here!
-            </p>
-            {hallOfShame.length === 0 ? (
-              <div className="rounded-xl border border-zinc-200 bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-900">
-                <p className="text-zinc-500 dark:text-zinc-400">
-                  No cheaters caught... yet 👀
-                </p>
-              </div>
-            ) : (
+          {/* Hall of Shame - Only show if there are cheaters */}
+          {hallOfShame.length > 0 && (
+            <div>
+              <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold text-red-600 dark:text-red-400">
+                🚨 Hall of Shame
+              </h2>
+              <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+                Caught cheating? You end up here!
+              </p>
               <div className="overflow-hidden rounded-xl border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30">
                 <table className="w-full">
                   <thead>
@@ -143,8 +137,8 @@ export default async function LeaderboardPage() {
                   </tbody>
                 </table>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Security Info */}
