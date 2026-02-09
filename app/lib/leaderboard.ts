@@ -140,10 +140,18 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
   }
 
   // Insert legitimate score with XP
-  await db`
-    INSERT INTO leaderboard (username, score, xp)
-    VALUES (${data.username}, ${data.score}, ${data.xp || 0})
-  `;
+  try {
+    await db`
+      INSERT INTO leaderboard (username, score, xp)
+      VALUES (${data.username}, ${data.score}, ${data.xp || 0})
+    `;
+  } catch {
+    // Fallback if xp column doesn't exist yet
+    await db`
+      INSERT INTO leaderboard (username, score)
+      VALUES (${data.username}, ${data.score})
+    `;
+  }
 
   revalidatePath("/leaderboard");
 
@@ -154,13 +162,24 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
 }
 
 export async function getLeaderboard() {
-  const rows = await db`
-    SELECT id, username, score, COALESCE(xp, 0) as xp, created_at
-    FROM leaderboard
-    ORDER BY score DESC
-    LIMIT 100
-  `;
-  return rows;
+  try {
+    const rows = await db`
+      SELECT id, username, score, COALESCE(xp, 0) as xp, created_at
+      FROM leaderboard
+      ORDER BY score DESC
+      LIMIT 100
+    `;
+    return rows;
+  } catch {
+    // Fallback if xp column doesn't exist yet
+    const rows = await db`
+      SELECT id, username, score, 0 as xp, created_at
+      FROM leaderboard
+      ORDER BY score DESC
+      LIMIT 100
+    `;
+    return rows;
+  }
 }
 
 // Get the Hall of Shame (caught cheaters)
