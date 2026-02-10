@@ -5,12 +5,14 @@ CREATE TABLE leaderboard (
   score INT NOT NULL,
   xp INT DEFAULT 0,
   is_champion BOOLEAN DEFAULT FALSE,
+  is_winner BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Migrations (run on existing DB):
 -- ALTER TABLE leaderboard ADD COLUMN IF NOT EXISTS xp INT DEFAULT 0;
 -- ALTER TABLE leaderboard ADD COLUMN IF NOT EXISTS is_champion BOOLEAN DEFAULT FALSE;
+-- ALTER TABLE leaderboard ADD COLUMN IF NOT EXISTS is_winner BOOLEAN DEFAULT FALSE;
 
 -- Hall of Shame - catches cheaters/hackers 🍯
 CREATE TABLE hall_of_shame (

@@ -51,6 +51,9 @@ const initialStats: BattleStats = {
   score: 0,
 };
 
+// Maximum score - reaching this means "Game Completed"
+const MAX_SCORE = 2000;
+
 // Arena types that count for badge progress
 const ARENA_TYPES = ['fire', 'water', 'electric', 'grass', 'psychic', 'rock', 'ice', 'dragon'];
 
@@ -100,6 +103,7 @@ export default function BattlePage() {
   const [stats, setStats] = useState<BattleStats>(initialStats);
   const [showModal, setShowModal] = useState(false);
   const [lastResult, setLastResult] = useState<BattleResult | null>(null);
+  const [showGameCompleted, setShowGameCompleted] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('pokemon-roster');
@@ -120,7 +124,12 @@ export default function BattlePage() {
   async function handleBattleResult(result: BattleResult) {
     const scoreDelta = result === 'win' ? 100 : -50;
     const xpGain = result === 'win' ? 30 : 10; // XP always goes up
-    const newScore = Math.max(0, score + scoreDelta);
+
+    // Cap score at MAX_SCORE to prevent false cheater detection
+    const rawScore = Math.max(0, score + scoreDelta);
+    const newScore = Math.min(rawScore, MAX_SCORE);
+    const isWinner = newScore >= MAX_SCORE;
+
     const newStats = {
       wins: result === 'win' ? stats.wins + 1 : stats.wins,
       losses: result === 'loss' ? stats.losses + 1 : stats.losses,
@@ -132,12 +141,18 @@ export default function BattlePage() {
     setStats(newStats);
     localStorage.setItem('pokemon-battle-stats', JSON.stringify(newStats));
     setLastResult(result);
-    setShowModal(true);
+
+    // Show Game Completed modal if player just reached max score
+    if (isWinner && score < MAX_SCORE) {
+      setShowGameCompleted(true);
+    } else {
+      setShowModal(true);
+    }
 
     // Auto-save to leaderboard after every battle
     if (username) {
       const isChampion = playedArenas.length >= 8;
-      await addToLeaderboard({ username, score: newScore, xp: newStats.xp, isChampion });
+      await addToLeaderboard({ username, score: newScore, xp: newStats.xp, isChampion, isWinner });
     }
   }
 
@@ -627,6 +642,44 @@ export default function BattlePage() {
                 >
                   Awesome! 🎉
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Game Completed Modal - Reached Max Score */}
+        {showGameCompleted && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+            <div className="mx-4 max-w-md rounded-2xl bg-gradient-to-br from-green-400 via-emerald-500 to-teal-500 p-1">
+              <div className="rounded-xl bg-zinc-900 p-8 text-center">
+                <div className="text-6xl">🏅</div>
+                <h2 className="mt-4 text-3xl font-bold text-green-400">GAME COMPLETED!</h2>
+                <p className="mt-2 text-lg text-zinc-300">You&apos;ve reached the maximum score!</p>
+                <p className="mt-1 text-sm text-zinc-400">{MAX_SCORE} points - You&apos;re a true Pokemon Master!</p>
+                <div className="mt-4 rounded-lg bg-zinc-800 p-4">
+                  <p className="text-sm text-zinc-400">Final Stats:</p>
+                  <p className="text-xl font-bold text-green-400">{stats.wins} Wins · {stats.xp} XP</p>
+                </div>
+                <div className="mt-6 flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowGameCompleted(false);
+                      setShowModal(true);
+                    }}
+                    className="flex-1 rounded-lg bg-zinc-700 px-4 py-3 font-medium text-white hover:bg-zinc-600"
+                  >
+                    Continue Playing
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowGameCompleted(false);
+                      viewLeaderboard();
+                    }}
+                    className="flex-1 rounded-lg bg-green-500 px-4 py-3 font-bold text-black hover:bg-green-400"
+                  >
+                    🏆 Leaderboard
+                  </button>
+                </div>
               </div>
             </div>
           </div>

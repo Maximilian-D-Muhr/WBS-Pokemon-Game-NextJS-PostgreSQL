@@ -7,6 +7,7 @@ interface LeaderboardEntry {
   score: number;
   xp: number;
   is_champion: boolean;
+  is_winner: boolean;
   created_at: string;
 }
 
@@ -99,6 +100,9 @@ export default async function LeaderboardPage() {
                         <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
                           <div className="flex items-center gap-2">
                             <span>{entry.username}</span>
+                            {entry.is_winner && (
+                              <span title="Game Completed - Max Score Reached!" className="text-green-500">🏅</span>
+                            )}
                             {entry.is_champion && (
                               <>
                                 <span title="Champion">👑</span>
