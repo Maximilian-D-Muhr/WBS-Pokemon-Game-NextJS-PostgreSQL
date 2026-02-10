@@ -39,6 +39,8 @@ A proactive security concept that detects and logs malicious activity:
 
 **How it works:** Instead of simply blocking attacks, suspicious submissions are logged to a public "Hall of Shame" table while returning fake success responses. This honeypot approach catches attackers who believe their exploit worked.
 
+> 🔒 **Security Audit made possible with [Claude Code](https://claude.ai/claude-code)**
+>
 > *Advanced security architecture and honeypot implementation concept by Max and Waqar. Implementation realized and end-to-end testing co-authored and validated by Claude Opus 4.5.*
 
 ## Local Setup
@@ -81,7 +83,8 @@ wbs-pokemon-game/
 │   ├── pokemon/[id]/       # Pokemon detail pages
 │   ├── battle/             # Battle system
 │   ├── roster/             # Team management
-│   ├── leaderboard/        # Scores + Hall of Shame
+│   ├── leaderboard/        # Top scores
+│   ├── hall-of-shame/      # Security audit logs
 │   ├── components/         # Reusable UI components
 │   ├── lib/                # Server actions & utilities
 │   └── sql/                # Database schemas
@@ -97,7 +100,7 @@ wbs-pokemon-game/
 
 ## Links
 
-- [Project Slides](https://docs.google.com/presentation/d/1mGGo_gcygBrztvbtGtoTf1nXKqowG1OyjEdDCMvaQKI/edit?usp=sharing)
+- **[🎮 Live Preview](https://wbs-pokemon-game-next-js-postgre-6411zknve.vercel.app)**
 - [Next.js Docs](https://nextjs.org/docs)
 - [PokeAPI](https://pokeapi.co/)
 - [Tailwind CSS](https://tailwindcss.com/docs)

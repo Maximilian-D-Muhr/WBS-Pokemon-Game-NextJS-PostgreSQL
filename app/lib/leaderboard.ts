@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { db } from "./db";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 // Constants for cheat detection
 const MAX_LEGITIMATE_SCORE = 2000; // Max realistic score per session
@@ -24,6 +25,7 @@ const leaderboardEntrySchema = z.object({
   score: z.number().int().nonnegative(),
   xp: z.number().int().nonnegative().optional(),
   isChampion: z.boolean().optional(),
+  isWinner: z.boolean().optional(),  // Reached max score (2000)
 });
 
 type LeaderboardInput = z.infer<typeof leaderboardEntrySchema>;
@@ -60,6 +62,22 @@ function detectCheating(input: unknown): { isSuspicious: boolean; reason: string
   return { isSuspicious: false, reason: "" };
 }
 
+// Get client IP address from headers
+async function getClientIP(): Promise<string> {
+  try {
+    const headersList = await headers();
+    // Check common proxy headers first, then fall back
+    return (
+      headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      headersList.get('x-real-ip') ||
+      headersList.get('cf-connecting-ip') ||  // Cloudflare
+      'Unknown'
+    );
+  } catch {
+    return 'Unknown';
+  }
+}
+
 // Log cheating attempt to the Hall of Shame
 async function logCheatAttempt(
   username: string,
@@ -67,9 +85,10 @@ async function logCheatAttempt(
   reason: string
 ) {
   try {
+    const ipAddress = await getClientIP();
     await db`
-      INSERT INTO hall_of_shame (username, attempted_score, reason, attempt_time)
-      VALUES (${username.slice(0, 50)}, ${attemptedScore}, ${reason.slice(0, 200)}, NOW())
+      INSERT INTO hall_of_shame (username, attempted_score, reason, ip_address, attempt_time)
+      VALUES (${username.slice(0, 50)}, ${attemptedScore}, ${reason.slice(0, 200)}, ${ipAddress}, NOW())
     `;
   } catch {
     // Table might not exist yet, silently fail
@@ -117,8 +136,9 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
   const data: LeaderboardInput = parsed.data;
 
   const isChampion = data.isChampion || false;
+  const isWinner = data.isWinner || false;
 
-  // One entry per username — always update score/xp/champion status
+  // One entry per username — always update score/xp/champion/winner status
   const existingEntry = await db`
     SELECT id, score FROM leaderboard
     WHERE username = ${data.username}
@@ -126,17 +146,17 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
   `;
 
   if (existingEntry.length > 0) {
-    // Update existing entry with latest score, xp and champion status
+    // Update existing entry with latest score, xp, champion and winner status
     await db`
       UPDATE leaderboard
-      SET score = ${data.score}, xp = ${data.xp || 0}, is_champion = ${isChampion}, created_at = NOW()
+      SET score = ${data.score}, xp = ${data.xp || 0}, is_champion = ${isChampion}, is_winner = ${isWinner}, created_at = NOW()
       WHERE id = ${existingEntry[0].id}
     `;
   } else {
     // New user — insert first entry
     await db`
-      INSERT INTO leaderboard (username, score, xp, is_champion)
-      VALUES (${data.username}, ${data.score}, ${data.xp || 0}, ${isChampion})
+      INSERT INTO leaderboard (username, score, xp, is_champion, is_winner)
+      VALUES (${data.username}, ${data.score}, ${data.xp || 0}, ${isChampion}, ${isWinner})
     `;
   }
 
@@ -151,7 +171,7 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
 export async function getLeaderboard() {
   try {
     const rows = await db`
-      SELECT id, username, score, COALESCE(xp, 0) as xp, COALESCE(is_champion, false) as is_champion, created_at
+      SELECT id, username, score, COALESCE(xp, 0) as xp, COALESCE(is_champion, false) as is_champion, COALESCE(is_winner, false) as is_winner, created_at
       FROM leaderboard
       ORDER BY score DESC
       LIMIT 100
@@ -160,7 +180,7 @@ export async function getLeaderboard() {
   } catch {
     // Fallback if columns don't exist yet
     const rows = await db`
-      SELECT id, username, score, 0 as xp, false as is_champion, created_at
+      SELECT id, username, score, 0 as xp, false as is_champion, false as is_winner, created_at
       FROM leaderboard
       ORDER BY score DESC
       LIMIT 100
@@ -173,7 +193,7 @@ export async function getLeaderboard() {
 export async function getHallOfShame() {
   try {
     const rows = await db`
-      SELECT id, username, attempted_score, reason, attempt_time
+      SELECT id, username, attempted_score, reason, COALESCE(ip_address, 'Unknown') as ip_address, attempt_time
       FROM hall_of_shame
       ORDER BY attempt_time DESC
       LIMIT 50

@@ -1,4 +1,5 @@
-import { getLeaderboard, getHallOfShame } from '@/app/lib/leaderboard';
+import { getLeaderboard } from '@/app/lib/leaderboard';
+import SecurityBox from '@/app/components/SecurityBox';
 
 interface LeaderboardEntry {
   id: number;
@@ -6,34 +7,35 @@ interface LeaderboardEntry {
   score: number;
   xp: number;
   is_champion: boolean;
+  is_winner: boolean;
   created_at: string;
 }
 
 // Arena type emojis for the champion badge animation
 const ARENA_EMOJIS = ['🔥', '💧', '⚡', '🌿', '🔮', '🪨', '❄️', '🐉'];
 
-interface ShameEntry {
-  id: number;
-  username: string;
-  attempted_score: number;
-  reason: string;
-  attempt_time: string;
-}
-
 export default async function LeaderboardPage() {
   const leaderboard = await getLeaderboard() as LeaderboardEntry[];
-  const hallOfShame = await getHallOfShame() as ShameEntry[];
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <style>{`
-        @keyframes champion-rotate {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+        @keyframes emoji-cycle {
+          0%, 10% { opacity: 1; }
+          12.5%, 100% { opacity: 0; }
         }
-        .champion-ring {
-          animation: champion-rotate 8s linear infinite;
+        .arena-emoji {
+          position: absolute;
+          animation: emoji-cycle 8s infinite;
         }
+        .arena-emoji:nth-child(1) { animation-delay: 0s; }
+        .arena-emoji:nth-child(2) { animation-delay: 1s; }
+        .arena-emoji:nth-child(3) { animation-delay: 2s; }
+        .arena-emoji:nth-child(4) { animation-delay: 3s; }
+        .arena-emoji:nth-child(5) { animation-delay: 4s; }
+        .arena-emoji:nth-child(6) { animation-delay: 5s; }
+        .arena-emoji:nth-child(7) { animation-delay: 6s; }
+        .arena-emoji:nth-child(8) { animation-delay: 7s; }
       `}</style>
       <main className="mx-auto max-w-4xl px-4 py-8">
         <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
@@ -43,7 +45,7 @@ export default async function LeaderboardPage() {
           Top scores from all trainers
         </p>
 
-        <div className={`mt-8 ${hallOfShame.length > 0 ? 'grid gap-8 lg:grid-cols-2' : ''}`}>
+        <div className="mt-8">
           {/* Leaderboard */}
           <div>
             <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
@@ -97,15 +99,20 @@ export default async function LeaderboardPage() {
                         </td>
                         <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
                           <div className="flex items-center gap-2">
-                            {entry.is_champion && (
-                              <span className="champion-ring inline-flex text-sm" title="Arena Champion - All 8 arenas completed!">
-                                {ARENA_EMOJIS.map((emoji, i) => (
-                                  <span key={i} className="inline-block" style={{ animationDelay: `${i * -1}s` }}>{emoji}</span>
-                                ))}
-                              </span>
-                            )}
                             <span>{entry.username}</span>
-                            {entry.is_champion && <span title="Champion">👑</span>}
+                            {entry.is_winner && (
+                              <span title="Game Completed - Max Score Reached!" className="text-green-500">🏅</span>
+                            )}
+                            {entry.is_champion && (
+                              <>
+                                <span title="Champion">👑</span>
+                                <span className="relative inline-block w-5 h-5" title="Arena Champion - All 8 arenas completed!">
+                                  {ARENA_EMOJIS.map((emoji, i) => (
+                                    <span key={i} className="arena-emoji">{emoji}</span>
+                                  ))}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right font-mono text-zinc-600 dark:text-zinc-400">
@@ -121,69 +128,10 @@ export default async function LeaderboardPage() {
               </div>
             )}
           </div>
-
-          {/* Hall of Shame - Only show if there are cheaters */}
-          {hallOfShame.length > 0 && (
-            <div>
-              <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold text-red-600 dark:text-red-400">
-                🚨 Hall of Shame
-              </h2>
-              <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-                Caught cheating? You end up here!
-              </p>
-              <div className="overflow-hidden rounded-xl border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-red-200 bg-red-100 dark:border-red-900 dark:bg-red-900/30">
-                      <th className="px-4 py-3 text-left text-sm font-medium text-red-700 dark:text-red-400">
-                        Cheater
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-red-700 dark:text-red-400">
-                        Reason
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hallOfShame.map((entry) => (
-                      <tr
-                        key={entry.id}
-                        className="border-b border-red-100 last:border-0 dark:border-red-900/50"
-                      >
-                        <td className="px-4 py-3">
-                          <span className="font-medium text-red-800 dark:text-red-300">
-                            {entry.username}
-                          </span>
-                          <p className="text-xs text-red-500">
-                            Tried: {entry.attempted_score.toLocaleString()} pts
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400">
-                          {entry.reason.length > 50
-                            ? entry.reason.slice(0, 50) + '...'
-                            : entry.reason}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Security Info */}
-        <div className="mt-8 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
-          <h3 className="font-semibold text-blue-800 dark:text-blue-300">
-            🔒 Security Features
-          </h3>
-          <ul className="mt-2 space-y-1 text-sm text-blue-700 dark:text-blue-400">
-            <li>• SQL Injection protection (parameterized queries)</li>
-            <li>• Input validation with Zod schema</li>
-            <li>• Score limit detection (max {2000} per session)</li>
-            <li>• XSS prevention (React auto-escaping)</li>
-            <li>• Honeypot logging for suspicious activity</li>
-          </ul>
-        </div>
+        {/* Collapsible Security Info */}
+        <SecurityBox />
       </main>
     </div>
   );
