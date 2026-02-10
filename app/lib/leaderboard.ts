@@ -146,6 +146,19 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
   `;
 
   if (existingEntry.length > 0) {
+    // Security: check if score jump is realistic
+    // Max +100 per win, -50 per loss — anything beyond that is manipulation
+    const storedScore = existingEntry[0].score;
+    const scoreDiff = data.score - storedScore;
+    if (scoreDiff > 150 || scoreDiff < -100) {
+      await logCheatAttempt(
+        data.username,
+        data.score,
+        `Suspicious score jump: ${storedScore} → ${data.score} (diff: ${scoreDiff > 0 ? '+' : ''}${scoreDiff})`
+      );
+      return { success: true, caught: true };
+    }
+
     // Update existing entry with latest score, xp, champion and winner status
     try {
       await db`
