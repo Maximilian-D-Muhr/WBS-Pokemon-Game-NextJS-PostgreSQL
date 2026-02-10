@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { db } from "./db";
+import { db, shameDb } from "./db";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
@@ -86,7 +86,7 @@ async function logCheatAttempt(
 ) {
   try {
     const ipAddress = await getClientIP();
-    await db`
+    await shameDb`
       INSERT INTO hall_of_shame (username, attempted_score, reason, ip_address, attempt_time)
       VALUES (${username.slice(0, 50)}, ${attemptedScore}, ${reason.slice(0, 200)}, ${ipAddress}, NOW())
     `;
@@ -146,6 +146,19 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
   `;
 
   if (existingEntry.length > 0) {
+    // Security: check if score jump is realistic
+    // Max +100 per win, -50 per loss — anything beyond that is manipulation
+    const storedScore = existingEntry[0].score;
+    const scoreDiff = data.score - storedScore;
+    if (scoreDiff > 150 || scoreDiff < -100) {
+      await logCheatAttempt(
+        data.username,
+        data.score,
+        `Suspicious score jump: ${storedScore} → ${data.score} (diff: ${scoreDiff > 0 ? '+' : ''}${scoreDiff})`
+      );
+      return { success: true, caught: true };
+    }
+
     // Update existing entry with latest score, xp, champion and winner status
     try {
       await db`
@@ -233,7 +246,7 @@ export async function getLeaderboard() {
 // Get the Hall of Shame (caught cheaters)
 export async function getHallOfShame() {
   try {
-    const rows = await db`
+    const rows = await shameDb`
       SELECT id, username, attempted_score, reason, COALESCE(ip_address, 'Unknown') as ip_address, attempt_time
       FROM hall_of_shame
       ORDER BY attempt_time DESC
