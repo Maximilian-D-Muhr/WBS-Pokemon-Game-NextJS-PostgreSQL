@@ -169,24 +169,13 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
 }
 
 export async function getLeaderboard() {
-  try {
-    const rows = await db`
-      SELECT id, username, score, COALESCE(xp, 0) as xp, COALESCE(is_champion, false) as is_champion, COALESCE(is_winner, false) as is_winner, created_at
-      FROM leaderboard
-      ORDER BY score DESC
-      LIMIT 100
-    `;
-    return rows;
-  } catch {
-    // Fallback if columns don't exist yet
-    const rows = await db`
-      SELECT id, username, score, 0 as xp, false as is_champion, false as is_winner, created_at
-      FROM leaderboard
-      ORDER BY score DESC
-      LIMIT 100
-    `;
-    return rows;
-  }
+  const rows = await db`
+    SELECT id, username, score, COALESCE(xp, 0) as xp, COALESCE(is_champion, false) as is_champion, COALESCE(is_winner, false) as is_winner, created_at
+    FROM leaderboard
+    ORDER BY score DESC
+    LIMIT 100
+  `;
+  return rows;
 }
 
 // Get the Hall of Shame (caught cheaters)
