@@ -18,8 +18,12 @@ CREATE TABLE hall_of_shame (
   username TEXT NOT NULL,
   attempted_score INT NOT NULL,
   reason TEXT NOT NULL,
+  ip_address TEXT DEFAULT 'Unknown',
   attempt_time TIMESTAMP DEFAULT NOW()
 );
+
+-- Migration for existing hall_of_shame table:
+-- ALTER TABLE hall_of_shame ADD COLUMN IF NOT EXISTS ip_address TEXT DEFAULT 'Unknown';
 
 -- Index for faster queries
 CREATE INDEX idx_leaderboard_score ON leaderboard(score DESC);

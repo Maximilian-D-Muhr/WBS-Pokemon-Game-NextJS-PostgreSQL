@@ -39,6 +39,7 @@ type BattleStats = {
   wins: number;
   losses: number;
   xp: number;
+  score: number;  // Added: persist score across sessions
 };
 
 type BattleResult = 'win' | 'loss';
@@ -47,6 +48,7 @@ const initialStats: BattleStats = {
   wins: 0,
   losses: 0,
   xp: 0,
+  score: 0,
 };
 
 // Arena types that count for badge progress
@@ -106,7 +108,9 @@ export default function BattlePage() {
     const savedUsername = localStorage.getItem('pokemon-username');
     setRoster(saved ? JSON.parse(saved) : []);
     setPlayedArenas(savedBadges ? JSON.parse(savedBadges) : []);
-    setStats(savedStats ? JSON.parse(savedStats) : initialStats);
+    const parsedStats = savedStats ? JSON.parse(savedStats) : initialStats;
+    setStats(parsedStats);
+    setScore(parsedStats.score || 0);  // Load score from stats
     setUsername(savedUsername || 'Anonymous');
     setIsLoaded(true);
   }, []);
@@ -121,6 +125,7 @@ export default function BattlePage() {
       wins: result === 'win' ? stats.wins + 1 : stats.wins,
       losses: result === 'loss' ? stats.losses + 1 : stats.losses,
       xp: stats.xp + xpGain,
+      score: newScore,  // Save score to stats for persistence
     };
 
     setScore(newScore);
@@ -315,7 +320,7 @@ export default function BattlePage() {
     setPlayerPokemon(null);
     setOpponentPokemon(null);
     setBattleLog([]);
-    setScore(0);
+    // Score is NOT reset - it persists across battles
     setIsPlayerTurn(true);
   };
 

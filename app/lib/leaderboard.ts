@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { db } from "./db";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 // Constants for cheat detection
 const MAX_LEGITIMATE_SCORE = 2000; // Max realistic score per session
@@ -60,6 +61,22 @@ function detectCheating(input: unknown): { isSuspicious: boolean; reason: string
   return { isSuspicious: false, reason: "" };
 }
 
+// Get client IP address from headers
+async function getClientIP(): Promise<string> {
+  try {
+    const headersList = await headers();
+    // Check common proxy headers first, then fall back
+    return (
+      headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      headersList.get('x-real-ip') ||
+      headersList.get('cf-connecting-ip') ||  // Cloudflare
+      'Unknown'
+    );
+  } catch {
+    return 'Unknown';
+  }
+}
+
 // Log cheating attempt to the Hall of Shame
 async function logCheatAttempt(
   username: string,
@@ -67,9 +84,10 @@ async function logCheatAttempt(
   reason: string
 ) {
   try {
+    const ipAddress = await getClientIP();
     await db`
-      INSERT INTO hall_of_shame (username, attempted_score, reason, attempt_time)
-      VALUES (${username.slice(0, 50)}, ${attemptedScore}, ${reason.slice(0, 200)}, NOW())
+      INSERT INTO hall_of_shame (username, attempted_score, reason, ip_address, attempt_time)
+      VALUES (${username.slice(0, 50)}, ${attemptedScore}, ${reason.slice(0, 200)}, ${ipAddress}, NOW())
     `;
   } catch {
     // Table might not exist yet, silently fail
@@ -173,7 +191,7 @@ export async function getLeaderboard() {
 export async function getHallOfShame() {
   try {
     const rows = await db`
-      SELECT id, username, attempted_score, reason, attempt_time
+      SELECT id, username, attempted_score, reason, COALESCE(ip_address, 'Unknown') as ip_address, attempt_time
       FROM hall_of_shame
       ORDER BY attempt_time DESC
       LIMIT 50
