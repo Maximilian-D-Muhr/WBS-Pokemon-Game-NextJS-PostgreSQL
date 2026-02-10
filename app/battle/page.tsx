@@ -130,10 +130,15 @@ export default function BattlePage() {
 
     // Send RAW score to server first - let server detect cheating!
     // Server will catch scores > 2000 and log to Hall of Shame
+    // Wrapped in try-catch so local stats still update even if server fails
     if (username) {
-      const isChampion = playedArenas.length >= 8;
-      const isWinner = rawScore >= MAX_SCORE && rawScore <= MAX_SCORE; // Only winner if exactly at max, not over
-      await addToLeaderboard({ username, score: rawScore, xp: stats.xp + xpGain, isChampion, isWinner });
+      try {
+        const isChampion = playedArenas.length >= 8;
+        const isWinnerServer = rawScore >= MAX_SCORE && rawScore <= MAX_SCORE;
+        await addToLeaderboard({ username, score: rawScore, xp: stats.xp + xpGain, isChampion, isWinner: isWinnerServer });
+      } catch (error) {
+        console.error('Failed to save to leaderboard:', error);
+      }
     }
 
     // Now cap score for local display (after server got the raw value)
