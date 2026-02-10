@@ -147,17 +147,34 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
 
   if (existingEntry.length > 0) {
     // Update existing entry with latest score, xp, champion and winner status
-    await db`
-      UPDATE leaderboard
-      SET score = ${data.score}, xp = ${data.xp || 0}, is_champion = ${isChampion}, is_winner = ${isWinner}, created_at = NOW()
-      WHERE id = ${existingEntry[0].id}
-    `;
+    try {
+      await db`
+        UPDATE leaderboard
+        SET score = ${data.score}, xp = ${data.xp || 0}, is_champion = ${isChampion}, is_winner = ${isWinner}, created_at = NOW()
+        WHERE id = ${existingEntry[0].id}
+      `;
+    } catch {
+      // Fallback: is_winner column might not exist yet
+      await db`
+        UPDATE leaderboard
+        SET score = ${data.score}, xp = ${data.xp || 0}, is_champion = ${isChampion}, created_at = NOW()
+        WHERE id = ${existingEntry[0].id}
+      `;
+    }
   } else {
     // New user — insert first entry
-    await db`
-      INSERT INTO leaderboard (username, score, xp, is_champion, is_winner)
-      VALUES (${data.username}, ${data.score}, ${data.xp || 0}, ${isChampion}, ${isWinner})
-    `;
+    try {
+      await db`
+        INSERT INTO leaderboard (username, score, xp, is_champion, is_winner)
+        VALUES (${data.username}, ${data.score}, ${data.xp || 0}, ${isChampion}, ${isWinner})
+      `;
+    } catch {
+      // Fallback: is_winner column might not exist yet
+      await db`
+        INSERT INTO leaderboard (username, score, xp, is_champion)
+        VALUES (${data.username}, ${data.score}, ${data.xp || 0}, ${isChampion})
+      `;
+    }
   }
 
   revalidatePath("/leaderboard");
