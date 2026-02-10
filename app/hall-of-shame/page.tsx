@@ -2,6 +2,10 @@ import { getHallOfShame } from '@/app/lib/leaderboard';
 import Link from 'next/link';
 import Image from 'next/image';
 
+// Force dynamic rendering - no caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface ShameEntry {
   id: number;
   username: string;
