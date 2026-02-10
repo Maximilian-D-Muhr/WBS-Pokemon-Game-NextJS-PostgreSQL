@@ -169,13 +169,48 @@ export async function addToLeaderboard(input: unknown): Promise<SubmissionResult
 }
 
 export async function getLeaderboard() {
-  const rows = await db`
-    SELECT id, username, score, COALESCE(xp, 0) as xp, COALESCE(is_champion, false) as is_champion, COALESCE(is_winner, false) as is_winner, created_at
-    FROM leaderboard
-    ORDER BY score DESC
-    LIMIT 100
-  `;
-  return rows;
+  try {
+    // Try with all columns
+    const rows = await db`
+      SELECT id, username, score, COALESCE(xp, 0) as xp, COALESCE(is_champion, false) as is_champion, COALESCE(is_winner, false) as is_winner, created_at
+      FROM leaderboard
+      ORDER BY score DESC
+      LIMIT 100
+    `;
+    return rows;
+  } catch (error) {
+    console.error("Leaderboard query error:", error);
+    // Fallback: try simpler query
+    try {
+      const rows = await db`
+        SELECT id, username, score, xp, is_champion, created_at
+        FROM leaderboard
+        ORDER BY score DESC
+        LIMIT 100
+      `;
+      // Add missing fields with defaults
+      return rows.map(row => ({
+        ...row,
+        xp: row.xp ?? 0,
+        is_champion: row.is_champion ?? false,
+        is_winner: false
+      }));
+    } catch {
+      // Ultimate fallback
+      const rows = await db`
+        SELECT id, username, score, created_at
+        FROM leaderboard
+        ORDER BY score DESC
+        LIMIT 100
+      `;
+      return rows.map(row => ({
+        ...row,
+        xp: 0,
+        is_champion: false,
+        is_winner: false
+      }));
+    }
+  }
 }
 
 // Get the Hall of Shame (caught cheaters)
