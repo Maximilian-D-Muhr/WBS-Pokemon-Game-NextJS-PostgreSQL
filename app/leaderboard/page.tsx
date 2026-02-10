@@ -1,6 +1,10 @@
 import { getLeaderboard } from '@/app/lib/leaderboard';
 import SecurityBox from '@/app/components/SecurityBox';
 
+// Force dynamic rendering - no caching
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface LeaderboardEntry {
   id: number;
   username: string;
@@ -119,7 +123,7 @@ export default async function LeaderboardPage() {
                           {entry.score.toLocaleString()}
                         </td>
                         <td className="px-4 py-3 text-right font-mono text-yellow-600 dark:text-yellow-400">
-                          {entry.xp.toLocaleString()}
+                          {(entry.xp ?? 0).toLocaleString()}
                         </td>
                       </tr>
                     ))}
