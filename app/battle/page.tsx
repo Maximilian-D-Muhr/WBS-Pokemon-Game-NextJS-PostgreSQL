@@ -125,16 +125,26 @@ export default function BattlePage() {
     const scoreDelta = result === 'win' ? 100 : -50;
     const xpGain = result === 'win' ? 30 : 10; // XP always goes up
 
-    // Cap score at MAX_SCORE to prevent false cheater detection
+    // Calculate raw score (might be over MAX_SCORE if cheating)
     const rawScore = Math.max(0, score + scoreDelta);
+
+    // Send RAW score to server first - let server detect cheating!
+    // Server will catch scores > 2000 and log to Hall of Shame
+    if (username) {
+      const isChampion = playedArenas.length >= 8;
+      const isWinner = rawScore >= MAX_SCORE && rawScore <= MAX_SCORE; // Only winner if exactly at max, not over
+      await addToLeaderboard({ username, score: rawScore, xp: stats.xp + xpGain, isChampion, isWinner });
+    }
+
+    // Now cap score for local display (after server got the raw value)
     const newScore = Math.min(rawScore, MAX_SCORE);
-    const isWinner = newScore >= MAX_SCORE;
+    const isWinner = newScore >= MAX_SCORE && score < MAX_SCORE;
 
     const newStats = {
       wins: result === 'win' ? stats.wins + 1 : stats.wins,
       losses: result === 'loss' ? stats.losses + 1 : stats.losses,
       xp: stats.xp + xpGain,
-      score: newScore,  // Save score to stats for persistence
+      score: newScore,  // Save capped score locally
     };
 
     setScore(newScore);
@@ -142,17 +152,11 @@ export default function BattlePage() {
     localStorage.setItem('pokemon-battle-stats', JSON.stringify(newStats));
     setLastResult(result);
 
-    // Show Game Completed modal if player just reached max score
-    if (isWinner && score < MAX_SCORE) {
+    // Show Game Completed modal if player just reached max score legitimately
+    if (isWinner) {
       setShowGameCompleted(true);
     } else {
       setShowModal(true);
-    }
-
-    // Auto-save to leaderboard after every battle
-    if (username) {
-      const isChampion = playedArenas.length >= 8;
-      await addToLeaderboard({ username, score: newScore, xp: newStats.xp, isChampion, isWinner });
     }
   }
 
